@@ -400,11 +400,15 @@ const App: React.FC = () => {
               <Mic size={20} />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2 flex-wrap">
                 Cantonese AI Transcriber
+                <span className="hidden sm:inline text-slate-300 dark:text-slate-600 mx-1">|</span>
+                <span className="text-base sm:text-lg font-normal text-slate-700 dark:text-slate-200">專業語音轉文字工具</span>
                 {isPro && <span className="px-2 py-0.5 bg-gradient-to-r from-amber-200 to-yellow-400 text-amber-900 text-[10px] font-bold rounded-full shadow-sm">PRO</span>}
               </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide">專業廣東話語音轉文字工具</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide">
+                支援廣東話 (Cantonese)、英文、國語識別 • 準確率高 • 智能長檔案處理
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
