@@ -1,5 +1,6 @@
+
 import { auth, db } from "./firebase";
-import { signInWithPopup, GoogleAuthProvider, signOut, type User } from "firebase/auth";
+import { signInWithPopup, GoogleAuthProvider, signOut, type User, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 
 // --- Admin Configuration ---
@@ -12,30 +13,36 @@ export const ADMIN_EMAILS = [
 // --- Admin Login (Google Sign-In) ---
 export const loginAdminWithGoogle = async (): Promise<User> => {
   try {
+    // 1. Ensure Persistence is set (keeps user logged in across refreshes)
+    await setPersistence(auth, browserLocalPersistence);
+
     const provider = new GoogleAuthProvider();
     // Force account selection to prevent auto-login to wrong account
     provider.setCustomParameters({
       prompt: 'select_account'
     });
 
+    // 2. Sign In
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
     const userEmail = user.email?.toLowerCase() || '';
 
-    // Security Check: Whitelist (Check against array)
+    // 3. Security Check: Whitelist (Check against array)
     const isAdmin = ADMIN_EMAILS.some(adminEmail => adminEmail.toLowerCase() === userEmail);
 
     if (!isAdmin) {
+      console.warn(`Unauthorized login attempt: ${userEmail}`);
       await signOut(auth); // Logout immediately if unauthorized
       throw new Error(`此 Google 帳號 (${user.email}) 未被授權為管理員。請聯絡系統擁有者。`);
     }
 
     return user;
   } catch (error: any) {
-    console.error("Google Login error", error);
+    console.error("Google Login Detailed Error:", error);
     
+    // Detailed Error Mapping
     if (error.code === 'auth/popup-closed-by-user') {
-      throw new Error("登入視窗已關閉或被瀏覽器攔截。請確保您的網域已加入 Firebase Console 的 'Authorized Domains' 中。");
+      throw new Error("登入視窗已關閉 (或被瀏覽器安全性攔截)。\n\n解決方法：\n1. 請確認網址列沒有「攔截彈出視窗」的圖示。\n2. 如果您使用 AdBlock，請暫時關閉。\n3. 請確認 Firebase Console 的 Authorized Domains 包含您目前的網域 (不含 http/https)。");
     }
     if (error.code === 'auth/popup-blocked') {
       throw new Error("彈出視窗被瀏覽器攔截，請允許本網站的彈出視窗後重試。");
@@ -44,10 +51,10 @@ export const loginAdminWithGoogle = async (): Promise<User> => {
       throw new Error("Google 登入未啟用。請前往 Firebase Console > Authentication > Sign-in method 開啟 Google 提供者。");
     }
     if (error.code === 'auth/unauthorized-domain') {
-      throw new Error("網域未授權。請前往 Firebase Console > Authentication > Settings > Authorized domains 新增目前網址的網域。");
+      throw new Error(`網域未授權 (${window.location.hostname})。\n請前往 Firebase Console > Authentication > Settings > Authorized domains 新增此網域。`);
     }
     if (error.code === 'auth/internal-error') {
-      throw new Error("Firebase 驗證發生內部錯誤。請檢查：1. Firebase Console 的授權網域設定。 2. 瀏覽器是否封鎖了第三方 Cookie。");
+      throw new Error("Firebase 驗證發生內部錯誤 (CSP/COOP)。\n請嘗試：\n1. 使用無痕視窗測試。\n2. 檢查 vercel.json 的 CSP 設定是否允許 firebaseapp.com。");
     }
     if (error.code === 'auth/network-request-failed') {
         throw new Error("網絡連線失敗。請檢查您的網絡連接或防火牆設定。");
