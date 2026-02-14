@@ -117,6 +117,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
             <option value="gemini-3-pro-preview">Gemini 3.0 Pro (最佳準確度)</option>
             <option value="gemini-3-flash-preview">Gemini 3.0 Flash (速度優先)</option>
           </select>
+          {settings.model === 'gemini-3-pro-preview' && (
+              <p className="text-[10px] text-green-600 dark:text-green-400 mt-1">
+                  * 推薦使用 Pro 模型以獲得最精準的時間戳對齊。
+              </p>
+          )}
         </div>
         
         {/* Start Time Config */}

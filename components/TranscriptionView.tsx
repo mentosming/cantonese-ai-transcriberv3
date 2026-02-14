@@ -89,7 +89,8 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
         }
 
         // 2. Check for Timestamped Segment
-        const match = line.match(/^\[(\d{1,2}:\d{2}(?::\d{2})?)(?:\s*-\s*(\d{1,2}:\d{2}(?::\d{2})?))?\]\s*(?:(.*?):)?\s*(.*)/);
+        // Regex handles spaces more flexibly now: [00:00-00:05] or [00:00 - 00:05]
+        const match = line.match(/^\[(\d{1,2}:\d{2}(?::\d{2})?)(?:\s*-?\s*(\d{1,2}:\d{2}(?::\d{2})?))?\]\s*(?:(.*?):)?\s*(.*)/);
         
         if (match) {
             const rawStartTime = match[1];
@@ -110,8 +111,8 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
                 newTimeStr = `${newStartTime} - ${newEndTime}`;
                 rawLineTimeStr = `[${newStartTime} - ${newEndTime}]`;
             } else {
-                // If no end time, we might estimate it later for SRT
-                endSec = startSec + 3; // Default buffer for SRT calculation if missing
+                // If no end time, we will rely on next segment or default in SRT export
+                endSec = startSec + 2; 
             }
 
             const newRawLine = `${rawLineTimeStr} ${speaker ? speaker + ': ' : ''}${content}`;
@@ -124,7 +125,7 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
                 content: content,
                 rawLine: newRawLine,
                 startSeconds: startSec,
-                endSeconds: endSec
+                endSeconds: rawEndTime ? endSec : undefined // Mark as undefined if originally missing
             };
         }
         
@@ -160,30 +161,36 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
       let srtContent = "";
       let counter = 1;
 
-      rows.forEach((row, idx) => {
-          if (row.type === 'segment' && row.startSeconds !== undefined) {
-              // Calculate End Seconds logic
+      // Extract only segments for easier index lookahead
+      const segments = rows.filter(r => r.type === 'segment');
+
+      segments.forEach((row, idx) => {
+          if (row.startSeconds !== undefined) {
+              // Smart End Time Logic
               let end = row.endSeconds;
               
-              // Try to be smarter about end time if it wasn't explicit: use next segment start
-              if (row.endSeconds === row.startSeconds + 3) {
-                  // Find next segment
-                  for(let i = idx + 1; i < rows.length; i++) {
-                      if (rows[i].type === 'segment' && rows[i].startSeconds) {
-                          if (rows[i].startSeconds! > row.startSeconds!) {
-                             // Use next start time as end time, capped at max 7 seconds gap
-                             end = Math.min(rows[i].startSeconds!, row.startSeconds! + 7); 
-                          }
-                          break;
+              if (end === undefined) {
+                  // If end time is missing, look at the NEXT segment's start time
+                  if (idx + 1 < segments.length && segments[idx+1].startSeconds) {
+                      const nextStart = segments[idx+1].startSeconds!;
+                      // Gap shouldn't be too huge (e.g. > 10s silence). 
+                      // If next start is 5s away, end this one at 5s.
+                      if (nextStart > row.startSeconds!) {
+                          end = Math.min(nextStart, row.startSeconds! + 7); // Cap at 7s duration if next segment is far
                       }
+                  } 
+                  
+                  // Fallback if still undefined
+                  if (end === undefined) {
+                      end = row.startSeconds! + 3;
                   }
               }
               
-              // Ensure end > start
-              if (end! <= row.startSeconds) end = row.startSeconds! + 2;
+              // Ensure end > start (Minimum 1s duration)
+              if (end <= row.startSeconds!) end = row.startSeconds! + 1;
 
               srtContent += `${counter}\n`;
-              srtContent += `${formatSecondsToSRT(row.startSeconds)} --> ${formatSecondsToSRT(end!)}\n`;
+              srtContent += `${formatSecondsToSRT(row.startSeconds)} --> ${formatSecondsToSRT(end)}\n`;
               srtContent += `${row.speaker ? row.speaker + ': ' : ''}${row.content}\n\n`;
               counter++;
           }

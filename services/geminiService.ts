@@ -125,7 +125,7 @@ export const transcribeMedia = async (
   }).join(', ');
 
   let systemInstruction = `
-You are a professional Transcriber. 
+You are a professional Transcriber / Subtitler. 
 Your task is to transcribe the **ENTIRE** audio/video file into text with high accuracy.
 
 **CRITICAL INSTRUCTION: FULL DURATION**
@@ -144,16 +144,24 @@ Your task is to transcribe the **ENTIRE** audio/video file into text with high a
 ${langInstructions}
 `;
 
-  // Formatting & Timestamp Logic
+  // Formatting & Timestamp Logic - OPTIMIZED FOR PRECISION
   if (settings.enableTimestamps) {
     systemInstruction += `
-**Formatting:**
-- Output specific format per line: \`[MM:SS - MM:SS] Speaker Name: Content\`
-- Example: \`[00:00 - 00:05] Peter: Hello.\`
-- Unknown speaker: "Unknown".
-- No Markdown bolding for metadata.
-- **Every sentence** must have a timestamp.
-- **IMPORTANT:** Always start timestamps from **00:00** relative to the beginning of THIS specific file. Do not attempt to calculate offsets from previous files.`;
+**Formatting & Timestamp Rules (High Precision):**
+1. **Structure:** \`[MM:SS - MM:SS] Speaker Name: Content\`
+2. **Segmentation (CRITICAL):** 
+   - You MUST break the text into **short, sentence-level segments**.
+   - **DO NOT** combine multiple long sentences into one timestamp block.
+   - Ideally, each timestamp segment should be **under 10 seconds** or represent a single thought/sentence.
+   - Example Bad: \`[00:00 - 00:30] (A long paragraph of 5 sentences...)\`
+   - Example Good: 
+     \`[00:00 - 00:05] Speaker: Hello everyone.\`
+     \`[00:05 - 00:10] Speaker: Today we are discussing the report.\`
+3. **Alignment:** 
+   - The start timestamp must match the exact moment audio begins for that segment.
+   - The end timestamp must match the exact moment audio ends.
+4. **Reset:** Always calculate time from **00:00** relative to the beginning of THIS specific file.
+`;
   } else {
     systemInstruction += `
 **Formatting:**
@@ -215,13 +223,13 @@ ${langInstructions}
           role: 'user',
           parts: [
             contentPart,
-            { text: "Transcribe the audio file word-for-word. Please ensure you process the FULL duration of the file, not just the beginning. Do not summarize." }
+            { text: "Transcribe the audio file word-for-word. Follow the segmentation rules strictly. Please ensure you process the FULL duration of the file." }
           ]
         }
       ],
       config: {
         systemInstruction: systemInstruction,
-        temperature: 0.2,
+        temperature: 0.2, // Low temperature for factual accuracy
         maxOutputTokens: 65536,
         thinkingConfig: { thinkingBudget: thinkingBudget }, 
         safetySettings: [
