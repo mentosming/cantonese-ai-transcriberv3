@@ -125,8 +125,8 @@ export const transcribeMedia = async (
   }).join(', ');
 
   let systemInstruction = `
-You are a professional Transcriber / Subtitler. 
-Your task is to transcribe the **ENTIRE** audio/video file into text with high accuracy.
+You are a professional Subtitler / Transcriber aimed at creating exact, time-synced subtitles.
+Your task is to transcribe the **ENTIRE** audio/video file word-for-word.
 
 **CRITICAL INSTRUCTION: FULL DURATION**
 - The audio file may be long (e.g., > 3 minutes). 
@@ -137,30 +137,32 @@ Your task is to transcribe the **ENTIRE** audio/video file into text with high a
 
 **Language Handling:**
 - The audio may contain the following languages: **${langNames}**.
-- Please detect and switch between these languages accurately.
-- Handle code-mixing (mixed languages in one sentence) naturally.
+- Detect and switch languages naturally.
+- Handle code-mixing accurately.
 
 **Language Specific Rules:**
 ${langInstructions}
 `;
 
-  // Formatting & Timestamp Logic - OPTIMIZED FOR PRECISION
+  // Formatting & Timestamp Logic - ULTRA PRECISION MODE
   if (settings.enableTimestamps) {
     systemInstruction += `
-**Formatting & Timestamp Rules (High Precision):**
-1. **Structure:** \`[MM:SS - MM:SS] Speaker Name: Content\`
-2. **Segmentation (CRITICAL):** 
-   - You MUST break the text into **short, sentence-level segments**.
-   - **DO NOT** combine multiple long sentences into one timestamp block.
-   - Ideally, each timestamp segment should be **under 10 seconds** or represent a single thought/sentence.
-   - Example Bad: \`[00:00 - 00:30] (A long paragraph of 5 sentences...)\`
-   - Example Good: 
-     \`[00:00 - 00:05] Speaker: Hello everyone.\`
-     \`[00:05 - 00:10] Speaker: Today we are discussing the report.\`
-3. **Alignment:** 
-   - The start timestamp must match the exact moment audio begins for that segment.
-   - The end timestamp must match the exact moment audio ends.
-4. **Reset:** Always calculate time from **00:00** relative to the beginning of THIS specific file.
+**STRICT TIMESTAMP & SEGMENTATION PROTOCOL:**
+1. **Format:** \`[MM:SS - MM:SS] Speaker Name: Content\`
+2. **Granularity (CRITICAL):** 
+   - Transcribe **SENTENCE BY SENTENCE**.
+   - **ABSOLUTELY FORBIDDEN** to merge multiple sentences into one timestamp block.
+   - **MAXIMUM DURATION**: Each timestamp segment must be **UNDER 7 SECONDS** unless it is a single continuous utterance without pauses.
+   - If a speaker pauses for even 0.5 seconds, start a **NEW** timestamp line.
+3. **Precision:**
+   - The [Start] time must match exactly when the sound begins.
+   - The [End] time must match exactly when the sound ends.
+   - Do NOT round off times loosely. Be precise.
+4. **Structure Example:**
+   [00:00 - 00:03] Speaker: Hello everyone.
+   [00:03 - 00:06] Speaker: Today we are discussing the project.
+   [00:06 - 00:10] Speaker: Please look at the screen.
+5. **Reset:** Times are relative to the start of THIS file (00:00).
 `;
   } else {
     systemInstruction += `
@@ -223,13 +225,13 @@ ${langInstructions}
           role: 'user',
           parts: [
             contentPart,
-            { text: "Transcribe the audio file word-for-word. Follow the segmentation rules strictly. Please ensure you process the FULL duration of the file." }
+            { text: "Transcribe the audio file word-for-word. FOLLOW THE SEGMENTATION RULES STRICTLY. Output short, precise segments." }
           ]
         }
       ],
       config: {
         systemInstruction: systemInstruction,
-        temperature: 0.2, // Low temperature for factual accuracy
+        temperature: 0.0, // Set to 0.0 for maximum determinism and reduced hallucination
         maxOutputTokens: 65536,
         thinkingConfig: { thinkingBudget: thinkingBudget }, 
         safetySettings: [
