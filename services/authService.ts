@@ -1,5 +1,7 @@
+
 import { auth, db } from "./firebase";
-import { signInWithPopup, GoogleAuthProvider, signOut, User } from "firebase/auth";
+import { signInWithPopup, GoogleAuthProvider, signOut } from "firebase/auth";
+import type { User } from "firebase/auth";
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 
 export const ADMIN_EMAIL = "km520daisy@gmail.com";
@@ -38,8 +40,14 @@ export const loginAdminWithGoogle = async (): Promise<User> => {
     if (error.code === 'auth/unauthorized-domain') {
       throw new Error("網域未授權。請前往 Firebase Console > Authentication > Settings > Authorized domains 新增目前網址的網域。");
     }
+    if (error.code === 'auth/internal-error') {
+      throw new Error("Firebase 驗證發生內部錯誤。請檢查：1. Firebase Console 的授權網域 (Authorized Domains) 設定。 2. 瀏覽器是否封鎖了第三方 Cookie。");
+    }
+    if (error.code === 'auth/network-request-failed') {
+        throw new Error("網絡連線失敗。請檢查您的網絡連接或防火牆設定。");
+    }
 
-    // Pass through our custom unauthorized error
+    // Pass through our custom unauthorized error or generic error
     throw new Error(error.message || "登入失敗，請稍後再試。");
   }
 };
