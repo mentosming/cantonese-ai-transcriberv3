@@ -203,6 +203,11 @@ ${langInstructions}
     }
 
     // 3. Generate Stream
+    // Determine thinking budget based on model.
+    // gemini-3-pro-preview mandates a non-zero thinking budget (Thinking Mode).
+    // gemini-3-flash-preview allows 0 to disable it.
+    const thinkingBudget = settings.model === 'gemini-3-pro-preview' ? 2048 : 0;
+
     const responseStream = await ai.models.generateContentStream({
       model: settings.model,
       contents: [
@@ -218,7 +223,7 @@ ${langInstructions}
         systemInstruction: systemInstruction,
         temperature: 0.2,
         maxOutputTokens: 65536,
-        thinkingConfig: { thinkingBudget: 0 }, // Disable thinking for transcription to save tokens
+        thinkingConfig: { thinkingBudget: thinkingBudget }, 
         safetySettings: [
           { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
           { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -252,6 +257,11 @@ ${langInstructions}
     if (error.message?.includes('429')) errObj.type = 'quota';
     if (error.message?.includes('fetch')) errObj.type = 'network';
     if (error.response?.promptFeedback?.blockReason) errObj.type = 'safety';
+    // Capture the Budget 0 invalid error
+    if (error.message?.includes('Budget 0 is invalid')) {
+         errObj.message = "此模型 (Gemini 3 Pro) 必須啟用思考模式，請重新整理或聯絡管理員更新設定。";
+         errObj.type = 'general';
+    }
 
     throw errObj;
   }
