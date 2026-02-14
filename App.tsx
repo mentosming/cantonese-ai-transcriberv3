@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, AlertCircle, PlayCircle, StopCircle, CheckCircle2, Loader2, UploadCloud, FileText, Sparkles, BookOpen, ChevronUp, ChevronDown, Coffee, Lock, UserCog, Unlock, Crown, X, Chrome, Moon, Sun, Type, Heart, KeyOff } from 'lucide-react';
+import { Mic, AlertCircle, PlayCircle, StopCircle, CheckCircle2, Loader2, UploadCloud, FileText, Sparkles, BookOpen, ChevronUp, ChevronDown, Coffee, Lock, UserCog, Unlock, Crown, X, Chrome, Moon, Sun, Type, Heart, Key } from 'lucide-react';
 import FileUpload from './components/FileUpload';
 import SettingsPanel from './components/SettingsPanel';
 import TranscriptionView from './components/TranscriptionView';
@@ -288,7 +288,7 @@ const App: React.FC = () => {
       {/* Missing API Key Warning Banner */}
       {!hasApiKey && (
         <div className="bg-red-600 text-white px-4 py-3 text-center text-sm font-bold flex items-center justify-center gap-2 z-50 shadow-lg animate-pulse">
-            <KeyOff size={20} />
+            <Key size={20} />
             <span>系統偵測不到 API Key。請於 Vercel 設定 Environment Variable: "API_KEY" 以啟用 AI 功能。</span>
         </div>
       )}
@@ -515,7 +515,7 @@ const App: React.FC = () => {
                             <ol className="text-sm text-slate-600 dark:text-slate-300 space-y-2 list-decimal list-inside">
                                 <li>
                                     <span className="font-medium text-slate-800 dark:text-slate-200">上載檔案：</span> 
-                                    支援 MP3, M4A, MP4 等格式。如檔案極大 (>1小時)，請先使用下方的「長檔案分割器」。
+                                    支援 MP3, M4A, MP4 等格式。如檔案極大 (&gt;1小時)，請先使用下方的「長檔案分割器」。
                                 </li>
                                 <li>
                                     <span className="font-medium text-slate-800 dark:text-slate-200">AI 設定：</span> 

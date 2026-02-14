@@ -217,7 +217,8 @@ ${langInstructions}
       config: {
         systemInstruction: systemInstruction,
         temperature: 0.2,
-        maxOutputTokens: 65536, 
+        maxOutputTokens: 65536,
+        thinkingConfig: { thinkingBudget: 0 }, // Disable thinking for transcription to save tokens
         safetySettings: [
           { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
           { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },

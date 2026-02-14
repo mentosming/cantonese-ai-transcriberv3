@@ -121,7 +121,7 @@ const FileSplitter: React.FC<FileSplitterProps> = ({ onSelectSegment, isPro, onR
         <h3 className="font-semibold">長檔案分割器</h3>
       </div>
       <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-        如果錄音極長 (>1小時)，請先分割。系統會根據檔案長度自動計算分割大小。
+        如果錄音極長 (&gt;1小時)，請先分割。系統會根據檔案長度自動計算分割大小。
       </p>
 
       <div className={`flex flex-col gap-3 transition-opacity ${!isPro ? 'opacity-20 pointer-events-none' : ''}`}>
