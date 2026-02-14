@@ -1,10 +1,13 @@
-
 import { auth, db } from "./firebase";
-import { signInWithPopup, GoogleAuthProvider, signOut } from "firebase/auth";
-import type { User } from "firebase/auth";
+import { signInWithPopup, GoogleAuthProvider, signOut, type User } from "firebase/auth";
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 
-export const ADMIN_EMAIL = "km520daisy@gmail.com";
+// --- Admin Configuration ---
+// 使用陣列管理管理員，方便日後新增其他成員
+export const ADMIN_EMAILS = [
+  "km520daisy@gmail.com", 
+  // "another.admin@gmail.com" // 您可以在此新增其他管理員
+];
 
 // --- Admin Login (Google Sign-In) ---
 export const loginAdminWithGoogle = async (): Promise<User> => {
@@ -17,11 +20,14 @@ export const loginAdminWithGoogle = async (): Promise<User> => {
 
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
+    const userEmail = user.email?.toLowerCase() || '';
 
-    // Security Check: Whitelist
-    if (user.email?.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+    // Security Check: Whitelist (Check against array)
+    const isAdmin = ADMIN_EMAILS.some(adminEmail => adminEmail.toLowerCase() === userEmail);
+
+    if (!isAdmin) {
       await signOut(auth); // Logout immediately if unauthorized
-      throw new Error(`此 Google 帳號 (${user.email}) 沒有管理員權限。`);
+      throw new Error(`此 Google 帳號 (${user.email}) 未被授權為管理員。請聯絡系統擁有者。`);
     }
 
     return user;
@@ -29,10 +35,10 @@ export const loginAdminWithGoogle = async (): Promise<User> => {
     console.error("Google Login error", error);
     
     if (error.code === 'auth/popup-closed-by-user') {
-      throw new Error("登入已取消");
+      throw new Error("登入視窗已關閉或被瀏覽器攔截。請確保您的網域已加入 Firebase Console 的 'Authorized Domains' 中。");
     }
     if (error.code === 'auth/popup-blocked') {
-      throw new Error("彈出視窗被瀏覽器攔截，請允許彈出視窗後重試。");
+      throw new Error("彈出視窗被瀏覽器攔截，請允許本網站的彈出視窗後重試。");
     }
     if (error.code === 'auth/operation-not-allowed') {
       throw new Error("Google 登入未啟用。請前往 Firebase Console > Authentication > Sign-in method 開啟 Google 提供者。");
@@ -41,7 +47,7 @@ export const loginAdminWithGoogle = async (): Promise<User> => {
       throw new Error("網域未授權。請前往 Firebase Console > Authentication > Settings > Authorized domains 新增目前網址的網域。");
     }
     if (error.code === 'auth/internal-error') {
-      throw new Error("Firebase 驗證發生內部錯誤。請檢查：1. Firebase Console 的授權網域 (Authorized Domains) 設定。 2. 瀏覽器是否封鎖了第三方 Cookie。");
+      throw new Error("Firebase 驗證發生內部錯誤。請檢查：1. Firebase Console 的授權網域設定。 2. 瀏覽器是否封鎖了第三方 Cookie。");
     }
     if (error.code === 'auth/network-request-failed') {
         throw new Error("網絡連線失敗。請檢查您的網絡連接或防火牆設定。");
@@ -61,7 +67,9 @@ export const getCurrentUser = () => {
 };
 
 export const isAdminUser = (user: User | null): boolean => {
-  return user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  if (!user?.email) return false;
+  const userEmail = user.email.toLowerCase();
+  return ADMIN_EMAILS.some(adminEmail => adminEmail.toLowerCase() === userEmail);
 };
 
 // --- License Management (Firestore) ---
