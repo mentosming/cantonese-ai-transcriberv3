@@ -82,7 +82,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowGuide(false);
-    }, 3000);
+    }, 5000); // Increased to 5s to allow reading the new richer content slightly
     return () => clearTimeout(timer);
   }, []);
 
@@ -502,18 +502,18 @@ const App: React.FC = () => {
                             <div className="grid grid-cols-2 gap-3 mb-4">
                                 <div className="p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
                                     <h4 className="font-semibold text-slate-800 dark:text-white text-xs mb-1">🆓 免費版</h4>
-                                    <ul className="text-xs text-slate-500 dark:text-slate-400 list-disc list-inside">
+                                    <ul className="text-xs text-slate-500 dark:text-slate-400 list-disc list-inside space-y-1">
                                         <li>單次轉錄長度限制 7 分鐘</li>
-                                        <li>基礎編輯與導出</li>
+                                        <li>基礎編輯與導出 (SRT/TXT)</li>
                                         <li>安全隱私 (無痕模式)</li>
                                     </ul>
                                 </div>
                                 <div className="p-3 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-100 dark:border-amber-800 rounded-lg">
                                     <h4 className="font-semibold text-amber-800 dark:text-amber-400 text-xs mb-1 flex items-center"><Crown size={12} className="mr-1"/> Pro 完全版</h4>
-                                    <ul className="text-xs text-amber-700 dark:text-amber-500 list-disc list-inside">
+                                    <ul className="text-xs text-amber-700 dark:text-amber-500 list-disc list-inside space-y-1">
                                         <li><strong>無限制轉錄時長</strong></li>
-                                        <li>解鎖長檔案分割與網絡下載/錄製工具</li>
-                                        <li>優先支援與新功能</li>
+                                        <li><strong>長檔案分割器</strong> (處理 &gt;1小時檔案)</li>
+                                        <li><strong>網絡連結匯入</strong> (下載 MP3 / 同步錄製)</li>
                                     </ul>
                                 </div>
                             </div>
@@ -526,20 +526,24 @@ const App: React.FC = () => {
                             <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider mb-3">🚀 使用流程指南</h3>
                             <ol className="text-sm text-slate-600 dark:text-slate-300 space-y-2 list-decimal list-inside">
                                 <li>
-                                    <span className="font-medium text-slate-800 dark:text-slate-200">上載與匯入：</span> 
-                                    支援 MP3/MP4 拖放。完全版可直接下載網絡影片音訊 (MP3) 或進行同步錄製。如檔案過大 (&gt;1小時) 請先分割。
+                                    <span className="font-medium text-slate-800 dark:text-slate-200">匯入音源 (三種方式)：</span> 
+                                    <ul className="pl-5 mt-1 space-y-1 list-disc text-xs text-slate-500 dark:text-slate-400">
+                                        <li><strong>檔案上載：</strong>拖放 MP3/MP4/M4A 檔案。</li>
+                                        <li><strong>網絡連結 (Pro)：</strong>貼上 YouTube/Instagram 連結直接下載 MP3。</li>
+                                        <li><strong>同步錄製 (Pro)：</strong>針對受保護內容 (如 Facebook/直播)，使用螢幕錄製功能擷取音訊。</li>
+                                    </ul>
                                 </li>
                                 <li>
                                     <span className="font-medium text-slate-800 dark:text-slate-200">AI 設定：</span> 
-                                    選擇語言 (可多選，例如廣東話+英文+印尼語)。在「額外提示」中輸入專有名詞可提高準確度。
+                                    選擇語言 (可多選，例如廣東話+英文)。在「額外提示」中輸入專有名詞 (人名、術語) 可大幅提高準確度。
                                 </li>
                                 <li>
                                     <span className="font-medium text-slate-800 dark:text-slate-200">轉錄與編輯：</span> 
-                                    點擊「開始轉錄」。完成後可直接在表格中修改文字與時間。
+                                    點擊「開始轉錄」。完成後可直接在表格中修改文字與時間戳。
                                 </li>
                                 <li>
                                     <span className="font-medium text-slate-800 dark:text-slate-200">導出與摘要：</span> 
-                                    支援導出 <strong>SRT 字幕</strong>、CSV 或 TXT。切換至「AI 摘要」可生成案情重點問答。
+                                    支援導出 <strong>SRT 字幕</strong>、CSV 或 TXT。切換至「AI 摘要」可生成詳細的案情重點問答。
                                 </li>
                             </ol>
                         </div>
