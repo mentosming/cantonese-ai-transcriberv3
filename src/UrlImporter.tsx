@@ -66,11 +66,12 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       setManualData({ url: targetUrl, filename });
       setStatus('連結已就緒，開始下載...');
 
-      // 2. Download via Proxies
+      // 2. Download Strategy: Local Proxy -> Public Proxy -> Manual
       let blob: Blob | null = null;
       
-      // Attempt A: Local Edge Proxy
+      // Attempt A: Local Edge Proxy (Best for Vercel deployment)
       try {
+          // Note: This might 404 on local vite dev unless configured, but that's fine, it catches and moves to B
           const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
           const res = await fetch(proxyUrl);
           if (res.ok) blob = await res.blob();
@@ -170,12 +171,12 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
                         className="flex items-center justify-between gap-2 w-full p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all shadow-md group"
                     >
                         <span className="text-xs font-bold flex items-center gap-2">
-                            <ExternalLink size={14}/> 1. 下載媒體檔案
+                            <ExternalLink size={14}/> 1. 點擊下載檔案
                         </span>
                         <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform"/>
                     </a>
                     <p className="text-[10px] text-slate-400 leading-tight">
-                        2. 下載完成後，請將檔案從電腦<strong>拖入上方</strong>「上載影音」虛線框內即可開始轉錄。
+                        2. 下載完成後，請將檔案<strong>拖入上方</strong>「上載影音」框內即可。
                     </p>
                 </div>
             )}
