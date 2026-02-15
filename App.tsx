@@ -646,18 +646,18 @@ const App: React.FC = () => {
                  <div>
                     <h2 className="text-sm uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold mb-3">4. 輔助工具</h2>
                     <div className="flex flex-col gap-6">
+                        <AudioExtractor />
+                        <FileSplitter 
+                            onSelectSegment={handleFileSelect} 
+                            isPro={isPro}
+                            onRequestUnlock={() => setShowLoginModal(true)}
+                        />
                         <UrlImporter 
                             onFileSelect={handleFileSelect} 
                             disabled={status === 'uploading' || status === 'transcribing'} 
                             isPro={isPro}
                             onRequestUnlock={() => setShowLoginModal(true)}
                         />
-                        <FileSplitter 
-                            onSelectSegment={handleFileSelect} 
-                            isPro={isPro}
-                            onRequestUnlock={() => setShowLoginModal(true)}
-                        />
-                        <AudioExtractor />
                     </div>
                  </div>
             </div>
