@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link2, Download, Loader2, AlertCircle, CheckCircle2, Globe, ArrowRight } from 'lucide-react';
+import { Link2, Download, Loader2, AlertCircle, CheckCircle2, Globe, ExternalLink } from 'lucide-react';
 import Button from './Button';
 
 interface UrlImporterProps {
@@ -13,6 +13,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [manualDownloadUrl, setManualDownloadUrl] = useState<string | null>(null);
 
   const handleImport = async () => {
     if (!url) return;
@@ -25,11 +26,11 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
 
     setIsProcessing(true);
     setError(null);
+    setManualDownloadUrl(null);
     setStatus('正在連線至媒體伺服器...');
 
     try {
       // Use Cobalt API (Public Instance) for extraction
-      // Documentation: https://github.com/imputnet/cobalt/blob/current/docs/api.md
       const apiEndpoint = "https://api.cobalt.tools/api/json";
       
       const response = await fetch(apiEndpoint, {
@@ -42,7 +43,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
           url: url,
           vCodec: "h264",
           vQuality: "720",
-          aFormat: "mp3", // Request MP3 directly
+          aFormat: "mp3",
           isAudioOnly: true
         })
       });
@@ -61,52 +62,73 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
           throw new Error("伺服器未返回下載連結");
       }
 
+      // Store URL for fallback
+      setManualDownloadUrl(data.url);
       setStatus('正在下載音訊檔案...');
       
-      // Fetch the actual audio file
-      // Note: This might hit CORS issues depending on the source. 
-      // If CORS fails, we might need a fallback.
-      const mediaRes = await fetch(data.url);
+      let blob: Blob;
+
+      try {
+          // Strategy 1: Direct Download
+          // Some CDNs might allow CORS, try direct first
+          const directRes = await fetch(data.url);
+          if (directRes.ok) {
+              blob = await directRes.blob();
+          } else {
+              throw new Error("Direct fetch failed");
+          }
+      } catch (directErr) {
+          console.warn("直接下載失敗 (CORS)，嘗試使用 Proxy...", directErr);
+          setStatus('正在嘗試繞過 CORS 限制...');
+          
+          // Strategy 2: CORS Proxy
+          // Use a public CORS proxy to bypass the browser restriction
+          try {
+              const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(data.url)}`;
+              const proxyRes = await fetch(proxyUrl);
+              if (!proxyRes.ok) throw new Error("Proxy fetch failed");
+              blob = await proxyRes.blob();
+          } catch (proxyErr) {
+              console.error("Proxy failed", proxyErr);
+              throw new Error("CORS_BLOCK"); // Special error code to trigger manual download UI
+          }
+      }
       
-      if (!mediaRes.ok) throw new Error("無法下載音訊串流 (CORS 或 連結失效)");
-      
-      const blob = await mediaRes.blob();
-      
-      // Generate a filename based on URL or timestamp
+      // Generate filename
       let filename = "network_audio.mp3";
-      // Try to get filename from content-disposition if exposed, otherwise generic
-      if (url.includes('youtube') || url.includes('youtu.be')) filename = `yt_audio_${Date.now()}.mp3`;
-      else if (url.includes('facebook') || url.includes('fb.watch')) filename = `fb_audio_${Date.now()}.mp3`;
+      if (url.includes('youtube') || url.includes('youtu.be')) filename = `yt_${Date.now()}.mp3`;
+      else if (url.includes('facebook') || url.includes('fb.watch')) filename = `fb_${Date.now()}.mp3`;
+      else if (url.includes('instagram')) filename = `ig_${Date.now()}.mp3`;
       
       const file = new File([blob], filename, { type: 'audio/mpeg' });
       
       setStatus('完成！');
       onFileSelect(file);
-      setUrl(''); // Clear input on success
+      setUrl(''); 
+      setManualDownloadUrl(null); // Clear fallback on success
       
-      // Clear success msg after 3s
       setTimeout(() => setStatus(''), 3000);
 
     } catch (err: any) {
       console.error(err);
-      let msg = "匯入失敗。";
-      
-      if (err.message.includes('Failed to fetch') || err.message.includes('CORS')) {
-          msg = "下載被瀏覽器攔截 (CORS)。請點擊下方按鈕手動下載，然後拖入框中。";
+      if (err.message === 'CORS_BLOCK') {
+          setError("瀏覽器攔截了自動下載。請點擊下方的按鈕手動下載檔案，然後拖入上方的「上載影音」框中。");
       } else {
-          msg = err.message || "發生未知錯誤";
+          let msg = err.message || "發生未知錯誤";
+          if (msg.includes('Failed to fetch')) msg = "網絡連線失敗或被攔截。";
+          setError(msg);
       }
-      setError(msg);
     } finally {
       setIsProcessing(false);
     }
   };
 
   return (
-    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors">
+    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors animate-fade-in">
       <div className="flex items-center gap-2 mb-3 text-pink-600 dark:text-pink-400">
         <Globe size={20} />
         <h3 className="font-semibold">網絡連結匯入</h3>
+        <span className="px-1.5 py-0.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 text-[10px] rounded-full font-bold">NEW</span>
       </div>
       
       <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
@@ -144,25 +166,25 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
             {error ? <AlertCircle size={14} className="shrink-0 mt-0.5"/> : (status === '完成！' ? <CheckCircle2 size={14} className="shrink-0 mt-0.5"/> : <Loader2 size={14} className="shrink-0 mt-0.5 animate-spin"/>)}
             <div className="flex-1 break-all">
                 {error || status}
-                {/* Fallback for CORS errors */}
-                {error && error.includes('CORS') && (
-                     <div className="mt-2">
-                        <a 
-                            href="https://cobalt.tools/" 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            className="inline-flex items-center gap-1 text-pink-600 dark:text-pink-400 font-bold hover:underline"
-                        >
-                            前往下載工具網站 <ArrowRight size={10} />
-                        </a>
-                     </div>
-                )}
             </div>
           </div>
         )}
+
+        {/* Manual Download Fallback Button */}
+        {manualDownloadUrl && error && (
+            <a 
+                href={manualDownloadUrl} 
+                target="_blank" 
+                rel="noreferrer" 
+                className="flex items-center justify-center gap-2 w-full py-2 bg-pink-50 hover:bg-pink-100 dark:bg-pink-900/20 dark:hover:bg-pink-900/40 text-pink-700 dark:text-pink-300 border border-pink-200 dark:border-pink-800 rounded-lg transition-colors text-xs font-bold animate-pulse"
+            >
+                <ExternalLink size={14} />
+                點擊此處手動下載檔案 (.mp3)
+            </a>
+        )}
         
         <div className="text-[10px] text-slate-400 dark:text-slate-500 text-center mt-1">
-            * 支援服務由 Cobalt API 提供，可能因地區限制失效。
+            * 支援服務由 Cobalt API 提供。若自動下載失敗，請使用手動下載。
         </div>
       </div>
     </div>
