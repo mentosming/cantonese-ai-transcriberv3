@@ -84,9 +84,9 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       const targetUrl = data.url;
       const filename = data.filename || `media_${Date.now()}.${useVideoMode ? 'mp4' : 'mp3'}`;
       
-      // CRITICAL: Save manual data immediately
+      // CRITICAL: Save manual data immediately so button is ready even if next step fails
       setManualData({ url: targetUrl, filename });
-      setStatus('連結已取得，正在下載...');
+      setStatus('連結已取得，正在嘗試下載...');
 
       // 2. Download Strategy
       let blob: Blob | null = null;
@@ -116,7 +116,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       setStatus('成功匯入！');
       onFileSelect(file);
       setUrl('');
-      setManualData(null);
+      setManualData(null); // Clear manual button on success
       setTimeout(() => setStatus(''), 3000);
 
     } catch (err: any) {
@@ -124,7 +124,8 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       
       // Customize error messages
       if (err.message === 'AUTO_DOWNLOAD_FAILED' || err.message.includes('fetch')) {
-          setError("自動下載受阻 (CORS)。請使用下方按鈕手動下載。");
+          setError("瀏覽器攔截了自動下載。");
+          // Ensure manual data persists so button shows
       } else {
           setError(err.message || "發生未知錯誤");
       }
@@ -138,7 +139,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       <div className="flex items-center gap-2 mb-3 text-pink-600 dark:text-pink-400">
         <Globe size={20} />
         <h3 className="font-semibold">網絡連結匯入</h3>
-        <span className="px-2 py-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-[10px] rounded-full font-bold shadow-sm">V3.5 (Stable)</span>
+        <span className="px-2 py-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-[10px] rounded-full font-bold shadow-sm">V4.0 (Final)</span>
       </div>
       
       <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
@@ -199,7 +200,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
             
             {manualData ? (
                 <div className="space-y-2 pt-2 border-t border-red-100 dark:border-red-800">
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">手動下載 (100% 成功)：</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">請手動下載檔案 (100% 成功)：</p>
                     <a 
                         href={manualData.url} 
                         target="_blank" 
@@ -207,18 +208,18 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
                         className="flex items-center justify-between gap-2 w-full p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all shadow-md group"
                     >
                         <span className="text-xs font-bold flex items-center gap-2">
-                            <ExternalLink size={14}/> 1. 點擊下載檔案
+                            <ExternalLink size={14}/> 點擊這裡下載檔案
                         </span>
                         <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform"/>
                     </a>
                     <p className="text-[10px] text-slate-400 leading-tight">
-                        2. 下載後，請將檔案<strong>拖入上方</strong>「上載影音」框內。
+                        下載完成後，請將檔案從電腦資料夾<strong>拖入上方</strong>「上載影音」框內即可。
                     </p>
                 </div>
             ) : (
                 <div className="pt-2 border-t border-red-100 dark:border-red-800">
                     <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                        提示：若持續失敗，可能是該影片有地區限制或版權保護，建議您自行下載檔案後再上傳。
+                        提示：若持續失敗，可能是該影片有嚴格的版權保護。
                     </p>
                 </div>
             )}
