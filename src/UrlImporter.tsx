@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link2, Download, Loader2, AlertCircle, CheckCircle2, Globe, ExternalLink, ArrowRight, HelpCircle } from 'lucide-react';
+import { Link2, Download, Loader2, AlertCircle, CheckCircle2, Globe, ArrowRight, HelpCircle, ExternalLink, RefreshCw } from 'lucide-react';
 import Button from './Button';
 
 interface UrlImporterProps {
@@ -13,7 +13,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [manualDownloadUrl, setManualDownloadUrl] = useState<string | null>(null);
+  const [manualDownloadData, setManualDownloadData] = useState<{url: string, filename: string} | null>(null);
 
   const handleImport = async () => {
     if (!url) return;
@@ -25,12 +25,12 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
 
     setIsProcessing(true);
     setError(null);
-    setManualDownloadUrl(null);
-    setStatus('正在連線至 Cobalt 伺服器解析連結...');
+    setManualDownloadData(null);
+    setStatus('正在連線至 Cobalt 解析服務...');
 
     try {
-      // 1. Resolve URL using Cobalt
-      // Cobalt is generally more stable for direct links than Piped raw streams
+      // 1. Resolve URL using Cobalt API
+      // We use a specific instance or the main one
       const response = await fetch("https://api.cobalt.tools/api/json", {
         method: 'POST',
         headers: {
@@ -39,85 +39,66 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
         },
         body: JSON.stringify({
           url: url,
-          vCodec: "h264",
-          vQuality: "720",
           aFormat: "mp3",
           isAudioOnly: true
         })
       });
 
-      if (!response.ok) throw new Error(`解析服務連線失敗: ${response.status}`);
+      if (!response.ok) throw new Error(`解析服務連線失敗 (${response.status})`);
       const data = await response.json();
       
       if (data.status === 'error') throw new Error(data.text || "無法解析此連結");
       if (!data.url) throw new Error("伺服器未返回下載連結");
 
       const targetUrl = data.url;
-      setManualDownloadUrl(targetUrl);
-      setStatus('解析成功，正在嘗試下載音訊...');
-      
-      let blob: Blob | null = null;
-
-      // 2. Try Direct Download (Fastest, works if source has CORS enabled)
-      try {
-          const directRes = await fetch(targetUrl);
-          if (directRes.ok) {
-              blob = await directRes.blob();
-          }
-      } catch (e) {
-          console.log("Direct download failed (CORS), trying proxy...");
-      }
-
-      // 3. If Direct fails, use corsproxy.io (Public Proxy, No 10s Limit)
-      if (!blob) {
-          try {
-              setStatus('正在透過公共代理通道下載 (這可能需要幾秒鐘)...');
-              // Using corsproxy.io to bypass CORS headers
-              const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
-              const proxyRes = await fetch(proxyUrl);
-              
-              if (!proxyRes.ok) throw new Error("代理下載失敗");
-              blob = await proxyRes.blob();
-          } catch (proxyErr) {
-               console.error("Proxy failed", proxyErr);
-               // 4. If Public Proxy fails, try our local fallback (Vercel)
-               // Note: This often fails for large files > 10s download time
-               try {
-                   setStatus('嘗試備用線路...');
-                   const localProxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
-                   const localRes = await fetch(localProxyUrl);
-                   if (!localRes.ok) throw new Error("備用線路失敗");
-                   blob = await localRes.blob();
-               } catch (localErr) {
-                   throw new Error("CORS_BLOCK"); // Trigger manual download
-               }
-          }
-      }
-
-      if (!blob) throw new Error("無法獲取檔案內容");
       
       // Determine Filename
-      let filename = "downloaded_audio.mp3";
-      if (url.includes('youtube') || url.includes('youtu.be')) filename = `yt_${Date.now()}.mp3`;
+      let filename = "download.mp3";
+      if (data.filename) filename = data.filename;
+      else if (url.includes('youtube') || url.includes('youtu.be')) filename = `yt_${Date.now()}.mp3`;
       else if (url.includes('facebook')) filename = `fb_${Date.now()}.mp3`;
       else if (url.includes('instagram')) filename = `ig_${Date.now()}.mp3`;
-      else if (url.includes('tiktok')) filename = `tiktok_${Date.now()}.mp3`;
+      
+      // Prepare manual data just in case
+      setManualDownloadData({ url: targetUrl, filename });
+
+      setStatus('解析成功，正在下載音訊檔案...');
+      
+      // 2. Try to download via our Proxy (to bypass CORS)
+      // The proxy handles the OPTIONS preflight now
+      let blob: Blob | null = null;
+      try {
+          const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+          const res = await fetch(proxyUrl);
+          
+          if (!res.ok) throw new Error(`Proxy Download Failed: ${res.status}`);
+          blob = await res.blob();
+      } catch (proxyErr) {
+          console.warn("Proxy failed, trying fallback...", proxyErr);
+          // If proxy fails (e.g., 403 Forbidden due to IP lock), we MUST throw to trigger manual flow
+          throw new Error("CORS_BLOCK");
+      }
+
+      if (!blob) throw new Error("檔案內容為空");
 
       const file = new File([blob], filename, { type: 'audio/mpeg' });
       
       setStatus('完成！');
       onFileSelect(file);
       setUrl(''); 
-      setManualDownloadUrl(null);
+      setManualDownloadData(null);
       
       setTimeout(() => setStatus(''), 3000);
 
     } catch (err: any) {
       console.error(err);
-      if (err.message === 'CORS_BLOCK' || err.message.includes('Failed to fetch')) {
-          setError("瀏覽器安全性攔截了自動下載。");
+      
+      if (err.message === 'CORS_BLOCK' || err.message.includes('Proxy')) {
+          setError("自動下載因安全限制被攔截。請點擊下方按鈕手動下載。");
+          // Keep manualDownloadData set
       } else {
           setError(err.message || "發生未知錯誤");
+          setManualDownloadData(null);
       }
     } finally {
       setIsProcessing(false);
@@ -129,11 +110,11 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       <div className="flex items-center gap-2 mb-3 text-pink-600 dark:text-pink-400">
         <Globe size={20} />
         <h3 className="font-semibold">網絡連結匯入</h3>
-        <span className="px-1.5 py-0.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 text-[10px] rounded-full font-bold">V2.0</span>
+        <span className="px-1.5 py-0.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 text-[10px] rounded-full font-bold">V2.1</span>
       </div>
       
       <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-        支援 YouTube, Facebook, Instagram, TikTok。系統將自動嘗試多種代理方式提取音訊。
+        支援 YouTube, Facebook, Instagram, TikTok。系統將透過安全代理提取 MP3。
       </p>
 
       <div className="flex flex-col gap-3">
@@ -173,29 +154,32 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
           </div>
         )}
 
-        {/* Manual Download Fallback - Always show if we have a URL but error happened */}
-        {manualDownloadUrl && error && (
-            <div className="mt-1 pt-3 border-t border-slate-100 dark:border-slate-700 animate-pulse">
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1">
-                    <HelpCircle size={12}/> 自動下載失敗？請嘗試手動方式：
-                </p>
-                <a 
-                    href={manualDownloadUrl} 
-                    target="_blank" 
-                    rel="noreferrer" 
-                    className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-xs font-bold shadow-md"
-                >
-                    <ExternalLink size={14} />
-                    1. 點擊下載音訊檔案 (新分頁)
-                </a>
-                <p className="text-[10px] text-center text-slate-400 mt-2">
-                    2. 下載完成後，將檔案拖入上方的「上載影音」框即可。
-                </p>
+        {/* Manual Download Fallback UI */}
+        {manualDownloadData && error && (
+            <div className="mt-2 pt-3 border-t border-slate-200 dark:border-slate-700 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-100 dark:border-yellow-800/50">
+                    <p className="text-xs text-yellow-800 dark:text-yellow-200 font-bold mb-2 flex items-center gap-1">
+                        <HelpCircle size={14}/> 替代方案：
+                    </p>
+                    <ol className="text-xs text-yellow-700 dark:text-yellow-300 list-decimal list-inside space-y-2">
+                        <li>
+                            <a 
+                                href={manualDownloadData.url} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="inline-flex items-center gap-1 font-bold underline hover:text-yellow-900 dark:hover:text-yellow-100"
+                            >
+                                點擊此處下載 MP3 <ExternalLink size={12}/>
+                            </a>
+                        </li>
+                        <li>下載完成後，將檔案<strong>拖入上方</strong>「上載影音」框中即可。</li>
+                    </ol>
+                </div>
             </div>
         )}
         
         <div className="text-[10px] text-slate-400 dark:text-slate-500 text-center mt-1">
-            * 服務由 Cobalt & corsproxy.io 提供
+            * 服務由 Cobalt API 提供
         </div>
       </div>
     </div>
