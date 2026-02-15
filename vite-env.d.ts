@@ -1,0 +1,1 @@
+// This file is deprecated. See src/vite-env.d.ts
