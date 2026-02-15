@@ -4,7 +4,8 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
   // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
-  const env = loadEnv(mode, process.cwd(), '');
+  // Use '.' instead of process.cwd() to avoid type errors if @types/node is missing or conflicting
+  const env = loadEnv(mode, '.', '');
 
   // Logic to prioritize: API_KEY (Vercel System) > VITE_API_KEY > GOOGLE_API_KEY
   const apiKey = env.API_KEY || env.VITE_API_KEY || env.GOOGLE_API_KEY || '';

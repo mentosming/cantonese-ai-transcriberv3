@@ -78,6 +78,14 @@ const App: React.FC = () => {
     checkSavedLicense();
   }, []);
 
+  // --- Auto-Hide Guide Effect ---
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowGuide(false);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
   // --- Theme Effect ---
   // Apply dark class to <html> tag for global effect
   useEffect(() => {
