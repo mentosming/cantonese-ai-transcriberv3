@@ -233,32 +233,32 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled, isPro
   };
 
   return (
-    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors animate-fade-in relative overflow-hidden">
+    <div className={`bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-all animate-fade-in relative overflow-hidden ${!isPro ? 'min-h-[280px] p-0' : 'p-4'}`}>
       
-      {/* Lock Overlay */}
+      {/* Lock Overlay - Enhanced Aesthetics */}
       {!isPro && (
-        <div className="absolute inset-0 z-20 bg-white/60 dark:bg-slate-900/60 backdrop-blur-[2px] flex flex-col items-center justify-center text-center p-4">
-            <div className="p-3 bg-slate-800 dark:bg-black text-white rounded-full mb-3 shadow-lg">
-                <Lock size={24} />
+        <div className="absolute inset-0 z-20 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6 animate-fade-in">
+            <div className="p-4 bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-full mb-5 shadow-sm border border-slate-100 dark:border-slate-700">
+                <Lock size={32} />
             </div>
-            <h3 className="font-bold text-slate-800 dark:text-white">完全版功能</h3>
-            <p className="text-xs text-slate-600 dark:text-slate-300 mb-4 max-w-[200px]">
-                網絡連結匯入與錄製功能僅供完全版用戶使用。
+            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-3">完全版功能</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 max-w-[260px] leading-relaxed">
+                網絡連結匯入與錄製功能<br/>僅供完全版用戶使用。
             </p>
-            <Button onClick={onRequestUnlock} className="text-xs h-8 shadow-md bg-gradient-to-r from-blue-600 to-indigo-600">
-                輸入通行碼
+            <Button onClick={onRequestUnlock} className="px-8 py-3 shadow-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0 font-bold tracking-wide transform hover:scale-105 transition-all rounded-full">
+                輸入通行碼解鎖
             </Button>
         </div>
       )}
 
-      <div className={!isPro ? 'opacity-20 pointer-events-none' : ''}>
+      <div className={`transition-all duration-500 ${!isPro ? 'opacity-5 pointer-events-none blur-sm p-4 h-full flex flex-col justify-between' : ''}`}>
         <div className="flex items-center gap-2 mb-3 text-pink-600 dark:text-pink-400">
             <Globe size={20} />
             <h3 className="font-semibold">網絡連結匯入</h3>
             <span className="px-2 py-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] rounded-full font-bold">V5.4 (Download+)</span>
         </div>
         
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
             <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <Link2 size={16} />
@@ -269,7 +269,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled, isPro
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     disabled={isProcessing || isRecording || disabled}
-                    className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 outline-none text-slate-900 dark:text-slate-100 placeholder-slate-400"
+                    className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 outline-none text-slate-900 dark:text-slate-100 placeholder-slate-400"
                 />
             </div>
 
@@ -277,7 +277,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled, isPro
                 <Button 
                     onClick={() => handleImport(false)} 
                     disabled={!url || isProcessing || disabled}
-                    className="flex-1 text-xs"
+                    className="flex-1 text-xs py-2.5"
                     variant="secondary"
                     title="解析並自動匯入到轉錄區"
                 >
@@ -287,7 +287,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled, isPro
                 <Button 
                     onClick={handleDownload} 
                     disabled={!url || isProcessing || disabled}
-                    className="w-28 text-xs bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200"
+                    className="w-28 text-xs py-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200"
                     variant="secondary"
                     title="僅下載 MP3 檔案"
                 >
@@ -297,7 +297,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled, isPro
                 <Button 
                     onClick={() => { setShowRecorder(true); setForceEmbed(false); }} 
                     disabled={!url || isProcessing || disabled}
-                    className="flex-1 text-xs bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-300"
+                    className="flex-1 text-xs py-2.5 bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-300"
                     variant="secondary"
                 >
                     <Mic size={14} /> 同步錄製
