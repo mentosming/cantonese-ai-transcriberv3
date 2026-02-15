@@ -30,7 +30,6 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
 
     try {
       // 1. Resolve URL using Cobalt API
-      // We use a specific instance or the main one
       const response = await fetch("https://api.cobalt.tools/api/json", {
         method: 'POST',
         headers: {
@@ -59,24 +58,31 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       else if (url.includes('facebook')) filename = `fb_${Date.now()}.mp3`;
       else if (url.includes('instagram')) filename = `ig_${Date.now()}.mp3`;
       
-      // Prepare manual data just in case
       setManualDownloadData({ url: targetUrl, filename });
-
       setStatus('解析成功，正在下載音訊檔案...');
       
-      // 2. Try to download via our Proxy (to bypass CORS)
-      // The proxy handles the OPTIONS preflight now
+      // 2. Download Strategy: Local Proxy -> Public Proxy (Fallback)
       let blob: Blob | null = null;
+      
+      // Attempt 1: Local Vercel Proxy (Secure, No Limits usually)
       try {
           const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
           const res = await fetch(proxyUrl);
-          
-          if (!res.ok) throw new Error(`Proxy Download Failed: ${res.status}`);
+          if (!res.ok) throw new Error("Local Proxy Failed");
           blob = await res.blob();
-      } catch (proxyErr) {
-          console.warn("Proxy failed, trying fallback...", proxyErr);
-          // If proxy fails (e.g., 403 Forbidden due to IP lock), we MUST throw to trigger manual flow
-          throw new Error("CORS_BLOCK");
+      } catch (localErr) {
+          console.warn("Local proxy failed, switching to public fallback...", localErr);
+          
+          // Attempt 2: corsproxy.io (Public, Fast, Good for fallback)
+          try {
+             setStatus('正在切換至備用線路下載...');
+             const publicProxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+             const res = await fetch(publicProxyUrl);
+             if (!res.ok) throw new Error("Public Proxy Failed");
+             blob = await res.blob();
+          } catch (publicErr) {
+             throw new Error("CORS_BLOCK"); // Trigger manual download UI
+          }
       }
 
       if (!blob) throw new Error("檔案內容為空");
@@ -95,7 +101,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       
       if (err.message === 'CORS_BLOCK' || err.message.includes('Proxy')) {
           setError("自動下載因安全限制被攔截。請點擊下方按鈕手動下載。");
-          // Keep manualDownloadData set
+          // Keep manualDownloadData set so user can click it
       } else {
           setError(err.message || "發生未知錯誤");
           setManualDownloadData(null);
@@ -110,11 +116,11 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       <div className="flex items-center gap-2 mb-3 text-pink-600 dark:text-pink-400">
         <Globe size={20} />
         <h3 className="font-semibold">網絡連結匯入</h3>
-        <span className="px-1.5 py-0.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 text-[10px] rounded-full font-bold">V2.1</span>
+        <span className="px-1.5 py-0.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 text-[10px] rounded-full font-bold">V2.2 (Fallback)</span>
       </div>
       
       <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-        支援 YouTube, Facebook, Instagram, TikTok。系統將透過安全代理提取 MP3。
+        支援 YouTube, Facebook, Instagram, TikTok。系統內建雙重代理以確保下載成功率。
       </p>
 
       <div className="flex flex-col gap-3">
