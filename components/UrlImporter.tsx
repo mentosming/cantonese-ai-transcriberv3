@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link2, Download, Loader2, AlertCircle, Globe, ExternalLink, ArrowRight, Video, Music, Mic, StopCircle, PlayCircle, X, Layers, CheckCircle2 } from 'lucide-react';
+import { Link2, Download, Loader2, AlertCircle, Globe, ExternalLink, ArrowRight, Video, Music, Mic, StopCircle, PlayCircle, X, Layers, CheckCircle2, MonitorPlay } from 'lucide-react';
 import Button from './Button';
 
 interface UrlImporterProps {
@@ -18,16 +18,22 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
   const [showRecorder, setShowRecorder] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [forceEmbed, setForceEmbed] = useState(false); // New: Allow user to force iframe
+  
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
-  // YouTube Embed Helper
+  // YouTube Helper
+  const isYouTube = (rawUrl: string) => {
+      return rawUrl.includes('youtube.com') || rawUrl.includes('youtu.be');
+  };
+
   const getEmbedUrl = (rawUrl: string) => {
     try {
         const urlObj = new URL(rawUrl);
         let videoId = '';
         
-        if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
+        if (isYouTube(rawUrl)) {
             if (urlObj.searchParams.has('v')) {
                 videoId = urlObj.searchParams.get('v') || '';
             } else if (urlObj.hostname === 'youtu.be') {
@@ -39,7 +45,6 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
             }
 
             if (videoId) {
-                // remove any query params from ID
                 videoId = videoId.split('?')[0]; 
                 return `https://www.youtube.com/embed/${videoId}`;
             }
@@ -52,7 +57,6 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
 
   const openPopup = () => {
      if(!url) return;
-     // Open in a decent size popup to allow user to play it
      window.open(url, 'TargetVideo', 'width=1024,height=600,resizable=yes,scrollbars=yes,menubar=no');
   };
 
@@ -99,23 +103,20 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
 
   const startRecording = async () => {
     try {
-      // Use getDisplayMedia to capture system/tab audio
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true, // Chrome requires video to allow audio capture
+        video: true,
         audio: {
             echoCancellation: false,
             noiseSuppression: false,
             autoGainControl: false,
             channelCount: 2
         },
-        // @ts-ignore - Prefer current tab if possible, though 'browser' usually asks user
+        // @ts-ignore
         preferCurrentTab: false 
       } as any);
 
-      // We only want the audio track
       const audioTracks = stream.getAudioTracks();
       
-      // If no audio track was selected
       if (audioTracks.length === 0) {
           stream.getTracks().forEach(t => t.stop());
           alert("錯誤：未偵測到音訊軌道。\n\n請重試，並務必在彈出視窗中勾選左下角的「分享分頁音訊」 (Share tab audio)。");
@@ -143,7 +144,6 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       setError(null);
     } catch (err) {
       console.error(err);
-      // Don't alert if user just cancelled
       if ((err as any).name !== 'NotAllowedError') {
           alert("無法啟動錄製，請確保瀏覽器支援分頁錄音功能。");
       }
@@ -172,7 +172,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       <div className="flex items-center gap-2 mb-3 text-pink-600 dark:text-pink-400">
         <Globe size={20} />
         <h3 className="font-semibold">網絡連結匯入</h3>
-        <span className="px-2 py-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] rounded-full font-bold">V5.2 (Sync-Play)</span>
+        <span className="px-2 py-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] rounded-full font-bold">V5.3 (Anti-Block)</span>
       </div>
       
       <div className="flex flex-col gap-3">
@@ -200,7 +200,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
                 {isProcessing ? <Loader2 className="animate-spin" size={14}/> : <Download size={14} />} 快速解析
             </Button>
             <Button 
-                onClick={() => setShowRecorder(true)} 
+                onClick={() => { setShowRecorder(true); setForceEmbed(false); }} 
                 disabled={!url || isProcessing || disabled}
                 className="flex-1 text-xs bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-300"
                 variant="secondary"
@@ -229,15 +229,19 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
             <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden shadow-2xl relative">
                 <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 z-10">
                     <h3 className="font-bold flex items-center gap-2 dark:text-white">
-                        <Mic size={20} className="text-red-500" /> 同步錄製模式 (錄製系統/分頁音訊)
+                        <Mic size={20} className="text-red-500" /> 同步錄製模式
                     </h3>
                     <button onClick={() => { stopRecording(); setShowRecorder(false); }} className="text-slate-400 hover:text-white"><X size={24}/></button>
                 </div>
 
                 <div className="flex-1 bg-black flex flex-col relative overflow-hidden">
-                    {/* Video / Placeholder Area */}
-                    <div className="flex-1 relative flex items-center justify-center bg-slate-950">
-                        {url.includes('youtube') || url.includes('youtu.be') ? (
+                    {/* Video Area Logic:
+                        1. If YouTube & NOT Forced Popup -> Try Embed.
+                        2. If Other & NOT Forced Embed -> Show Placeholder.
+                        3. If Forced Embed -> Show Iframe.
+                    */}
+                    <div className="flex-1 relative flex items-center justify-center bg-slate-100 dark:bg-slate-950">
+                        {(isYouTube(url) || forceEmbed) ? (
                             <iframe 
                                 src={getEmbedUrl(url)}
                                 className="w-full h-full absolute inset-0"
@@ -245,31 +249,55 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
                                 allowFullScreen
                             ></iframe>
                         ) : (
-                            <div className="text-center p-8 opacity-50">
-                                <Video size={64} className="text-slate-600 mx-auto mb-4" />
-                                <p className="text-slate-500">此連結不支援預覽</p>
+                            <div className="text-center p-8 flex flex-col items-center">
+                                <div className="p-4 bg-slate-200 dark:bg-slate-800 rounded-full mb-4">
+                                    <MonitorPlay size={48} className="text-slate-500 dark:text-slate-400" />
+                                </div>
+                                <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">此來源建議使用獨立視窗播放</h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 max-w-md">
+                                    許多網站 (如 Facebook, Instagram 或特定 YouTube 影片) 禁止在其他網頁內嵌播放。
+                                    <br/>請直接開啟獨立視窗以避免「內容遭到封鎖」的錯誤。
+                                </p>
+                                <Button 
+                                    onClick={openPopup}
+                                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-full shadow-lg flex items-center gap-2"
+                                >
+                                    <Layers size={18} /> 開啟獨立視窗播放 (推薦)
+                                </Button>
+                                
+                                <button 
+                                    onClick={() => setForceEmbed(true)}
+                                    className="mt-6 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 underline"
+                                >
+                                    嘗試強制內嵌 (可能會失敗)
+                                </button>
                             </div>
                         )}
 
-                        {/* Always visible Overlay Button for External Playback */}
-                        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full text-center px-4 pointer-events-none z-30">
-                            <div className="pointer-events-auto inline-block">
+                        {/* YouTube Specific Error Hint Overlay */}
+                        {(isYouTube(url) || forceEmbed) && (
+                            <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm text-white px-4 py-2 rounded-full text-xs flex items-center gap-2 pointer-events-none z-20">
+                                <AlertCircle size={12} className="text-yellow-400"/>
+                                <span>若畫面顯示「遭到封鎖」，請點擊下方按鈕</span>
+                            </div>
+                        )}
+
+                        {/* Always visible Popup Button for Embed Mode */}
+                        {(isYouTube(url) || forceEmbed) && (
+                            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
                                 <Button 
                                     onClick={openPopup}
-                                    className="shadow-2xl bg-white hover:bg-slate-50 text-slate-900 border-0 py-3 px-6 rounded-full font-bold text-sm transform hover:scale-105 transition-all flex items-center gap-2"
+                                    className="shadow-2xl bg-white hover:bg-slate-50 text-slate-900 border-0 py-2.5 px-6 rounded-full font-bold text-xs transform hover:scale-105 transition-all flex items-center gap-2"
                                 >
-                                    <Layers size={18} className="text-blue-600" />
-                                    畫面被封鎖？點此開啟「獨立視窗」播放
+                                    <Layers size={16} className="text-blue-600" />
+                                    開啟獨立視窗 (解決封鎖問題)
                                 </Button>
-                                <p className="text-white/80 text-[10px] mt-2 bg-black/50 px-2 py-1 rounded inline-block backdrop-blur-sm">
-                                    提示：若上方出現 "Blocked"，請點此按鈕。
-                                </p>
                             </div>
-                        </div>
+                        )}
                     </div>
 
                     {isRecording && (
-                        <div className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-full text-xs font-bold animate-pulse shadow-lg z-20">
+                        <div className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-full text-xs font-bold animate-pulse shadow-lg z-40">
                             <div className="w-2 h-2 bg-white rounded-full"></div> REC 錄製中...
                         </div>
                     )}
@@ -277,22 +305,26 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
 
                 {/* Steps Footer */}
                 <div className="p-5 bg-slate-50 dark:bg-slate-800 border-t dark:border-slate-700">
-                    <div className="max-w-3xl mx-auto">
+                    <div className="max-w-4xl mx-auto">
                         {!recordedBlob ? (
-                            <div className="flex flex-col md:flex-row gap-4 items-center">
-                                <div className="flex-1 text-xs text-slate-500 dark:text-slate-400 space-y-1">
-                                    <p className="font-bold text-slate-800 dark:text-slate-200 mb-2">操作步驟：</p>
-                                    <p>1. 點擊畫面中的<strong>「開啟獨立視窗」</strong>準備好影片。</p>
-                                    <p>2. 點擊右側<strong>「開始錄製」</strong>，在彈出視窗選擇剛剛開啟的視窗/分頁。</p>
-                                    <p className="text-red-500 font-bold">3. ⚠️ 務必勾選左下角「分享音訊」(Share audio)。</p>
-                                    <p>4. 在獨立視窗播放影片，聲音即會自動錄入。</p>
+                            <div className="flex flex-col md:flex-row gap-6 items-center">
+                                <div className="flex-1 text-xs text-slate-500 dark:text-slate-400 space-y-1.5">
+                                    <p className="font-bold text-slate-800 dark:text-slate-200 mb-1 flex items-center gap-2">
+                                        <CheckCircle2 size={14} className="text-green-500"/> 標準流程：
+                                    </p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 pl-1">
+                                        <p>1. 點擊 <strong>[開啟獨立視窗]</strong> 或直接在上方播放。</p>
+                                        <p>2. 點擊右側 <strong>[開始錄製]</strong>。</p>
+                                        <p>3. 選擇剛剛的 <strong>視窗 (Window)</strong> 或 <strong>分頁 (Tab)</strong>。</p>
+                                        <p className="text-red-500 font-bold bg-red-50 dark:bg-red-900/20 px-1 rounded inline-block">4. ⚠️ 必須勾選 [分享音訊]。</p>
+                                    </div>
                                 </div>
                                 <div className="w-full md:w-auto shrink-0">
                                     <Button 
                                         onClick={isRecording ? stopRecording : startRecording}
-                                        className={`w-full md:w-48 h-12 text-sm font-bold shadow-lg ${isRecording ? 'bg-red-500 hover:bg-red-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                                        className={`w-full md:w-56 h-12 text-sm font-bold shadow-lg transition-all ${isRecording ? 'bg-red-500 hover:bg-red-600' : 'bg-indigo-600 hover:bg-indigo-700 hover:scale-105'}`}
                                     >
-                                        {isRecording ? <><StopCircle size={18}/> 停止並匯入</> : <><PlayCircle size={18}/> 開始錄製 (Start)</>}
+                                        {isRecording ? <><StopCircle size={20}/> 停止並匯入</> : <><PlayCircle size={20}/> 開始錄製 (Start)</>}
                                     </Button>
                                 </div>
                             </div>
