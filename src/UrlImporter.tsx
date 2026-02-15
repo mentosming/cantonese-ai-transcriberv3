@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link2, Download, Loader2, AlertCircle, CheckCircle2, Globe, ExternalLink, HelpCircle } from 'lucide-react';
+import { Link2, Download, Loader2, AlertCircle, CheckCircle2, Youtube, ExternalLink, RefreshCw } from 'lucide-react';
 import Button from './Button';
 
 interface UrlImporterProps {
@@ -8,12 +8,65 @@ interface UrlImporterProps {
   disabled?: boolean;
 }
 
+// List of reliable Piped instances (Round-robin to avoid rate limits)
+const PIPED_INSTANCES = [
+    "https://pipedapi.kavin.rocks",
+    "https://api.piped.privacy.com.de",
+    "https://pipedapi.drgns.space",
+    "https://pipedapi.moomoo.me",
+    "https://pipedapi.smnz.de"
+];
+
 const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => {
   const [url, setUrl] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [manualDownloadUrl, setManualDownloadUrl] = useState<string | null>(null);
+
+  // Helper: Extract YouTube ID
+  const getYouTubeID = (url: string) => {
+    const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[7].length === 11) ? match[7] : false;
+  };
+
+  const fetchWithPiped = async (videoId: string): Promise<{ url: string, filename: string }> => {
+    let lastError: any;
+
+    // Try instances sequentially until one works
+    for (const instance of PIPED_INSTANCES) {
+        try {
+            console.log(`Trying Piped Instance: ${instance}`);
+            const res = await fetch(`${instance}/streams/${videoId}`);
+            if (!res.ok) continue;
+            
+            const data = await res.json();
+            
+            // 1. Get Audio Streams
+            const audioStreams = data.audioStreams;
+            if (!audioStreams || audioStreams.length === 0) {
+                throw new Error("No audio streams found");
+            }
+
+            // 2. Sort by bitrate (highest first) and prefer m4a/mp4 for compatibility
+            audioStreams.sort((a: any, b: any) => b.bitrate - a.bitrate);
+            
+            // 3. Pick the best one
+            const targetStream = audioStreams[0];
+            
+            return {
+                url: targetStream.url,
+                filename: `${data.title || 'audio'}.m4a` // Piped usually gives m4a
+            };
+
+        } catch (err) {
+            console.warn(`Instance ${instance} failed:`, err);
+            lastError = err;
+        }
+    }
+    throw lastError || new Error("All Piped instances failed");
+  };
 
   const handleImport = async () => {
     if (!url) return;
@@ -26,84 +79,66 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
     setIsProcessing(true);
     setError(null);
     setManualDownloadUrl(null);
-    setStatus('正在連線至 Cobalt 伺服器解析連結...');
+    setStatus('正在分析連結...');
 
     try {
-      // Step 1: Resolve link via Cobalt
-      const apiEndpoint = "https://api.cobalt.tools/api/json";
-      const response = await fetch(apiEndpoint, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          url: url,
-          aFormat: "mp3",
-          isAudioOnly: true
-        })
-      });
+      const ytId = getYouTubeID(url);
+      let downloadUrl = '';
+      let filename = `import_${Date.now()}.mp3`;
 
-      if (!response.ok) throw new Error(`解析失敗: ${response.status}`);
-      const data = await response.json();
-      if (data.status === 'error') throw new Error(data.text || "解析錯誤");
-      if (!data.url) throw new Error("解析成功但未獲得下載網址");
-
-      const targetMediaUrl = data.url;
-      setManualDownloadUrl(targetMediaUrl);
-      setStatus('解析成功，正在下載媒體檔案...');
-      
-      let blob: Blob | null = null;
-
-      // --- STRATEGY 1: Internal Vercel Proxy (Most Reliable) ---
-      try {
-          setStatus('正在透過內部 Proxy 傳輸...');
-          const internalProxyUrl = `/api/proxy?url=${encodeURIComponent(targetMediaUrl)}`;
-          const proxyRes = await fetch(internalProxyUrl);
-          if (proxyRes.ok) {
-              blob = await proxyRes.blob();
-          } else {
-              throw new Error("Internal proxy failed");
-          }
-      } catch (proxyErr) {
-          console.warn("內部 Proxy 失敗，嘗試備用方案...", proxyErr);
+      if (ytId) {
+          // --- STRATEGY A: Piped API (Best for YouTube) ---
+          setStatus('偵測到 YouTube，正在切換至 Piped 線路...');
+          const result = await fetchWithPiped(ytId);
+          downloadUrl = result.url;
           
-          // --- STRATEGY 2: Public Proxy (AllOrigins) ---
-          try {
-              setStatus('正在嘗試備用公共代理...');
-              const publicProxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetMediaUrl)}`;
-              const allOriginsRes = await fetch(publicProxy);
-              if (allOriginsRes.ok) {
-                  blob = await allOriginsRes.blob();
-              } else {
-                  throw new Error("Public proxy failed");
-              }
-          } catch (allOriginsErr) {
-              console.error("所有下載嘗試均失敗", allOriginsErr);
-              throw new Error("CORS_BLOCK");
+          // Sanitize filename
+          filename = result.filename.replace(/[<>:"/\\|?*]+/g, '_');
+          if (!filename.endsWith('.m4a') && !filename.endsWith('.mp3') && !filename.endsWith('.webm')) {
+              filename += '.m4a';
           }
+
+      } else {
+          // --- STRATEGY B: Cobalt API (For FB/IG/TikTok) ---
+          setStatus('正在連線至 Cobalt (適用於非 YouTube)...');
+          const cobaltRes = await fetch("https://api.cobalt.tools/api/json", {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: url, isAudioOnly: true })
+          });
+          
+          const cobaltData = await cobaltRes.json();
+          if (!cobaltRes.ok || cobaltData.status === 'error') {
+             throw new Error("此連結不支援或伺服器忙碌。");
+          }
+          downloadUrl = cobaltData.url;
       }
 
-      if (!blob) throw new Error("無法獲取檔案內容");
+      setManualDownloadUrl(downloadUrl);
+      setStatus('正在透過安全通道下載...');
+
+      // --- FINAL DOWNLOAD: Use Local Streaming Proxy ---
+      // Direct fetch will fail due to CORS on googlevideo links
+      const proxyUrl = `/api/proxy?url=${encodeURIComponent(downloadUrl)}`;
       
-      // Generate filename
-      const filename = `network_${Date.now()}.mp3`;
-      const file = new File([blob], filename, { type: 'audio/mpeg' });
+      const response = await fetch(proxyUrl);
+      if (!response.ok) throw new Error("代理下載失敗 (Vercel Network Error)");
       
-      setStatus('完成！檔案已載入。');
+      const blob = await response.blob();
+      if (blob.size < 1000) throw new Error("下載的檔案太小，可能已損壞");
+
+      const file = new File([blob], filename, { type: blob.type || 'audio/mp4' });
+      
+      setStatus('完成！');
       onFileSelect(file);
-      setUrl(''); 
+      setUrl('');
       setManualDownloadUrl(null);
       
       setTimeout(() => setStatus(''), 3000);
 
     } catch (err: any) {
       console.error(err);
-      if (err.message === 'CORS_BLOCK') {
-          setError("瀏覽器安全性限制下載。請點擊下方的「手動下載」按鈕，存檔後拖入軟體。");
-      } else {
-          setError(err.message || "匯入過程發生錯誤");
-      }
+      setError(err.message || "匯入失敗，請檢查連結是否有效。");
     } finally {
       setIsProcessing(false);
     }
@@ -111,14 +146,14 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
 
   return (
     <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors animate-fade-in">
-      <div className="flex items-center gap-2 mb-3 text-pink-600 dark:text-pink-400">
-        <Globe size={20} />
-        <h3 className="font-semibold">雲端連結匯入 (雙重代理版)</h3>
-        <span className="px-1.5 py-0.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 text-[10px] rounded-full font-bold">PRO</span>
+      <div className="flex items-center gap-2 mb-3 text-red-600 dark:text-red-400">
+        <Youtube size={20} />
+        <h3 className="font-semibold">YouTube / 網頁匯入</h3>
+        <span className="px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-[10px] rounded-full font-bold">Piped API</span>
       </div>
       
       <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
-        內置 Vercel 伺服器代理，自動繞過 CORS 限制。支援 YouTube、FB、IG、TikTok 等主流平台。
+        使用 Piped 開源節點提取音訊，並透過串流代理 (Streaming Proxy) 下載。穩定性更高。
       </p>
 
       <div className="flex flex-col gap-3">
@@ -128,11 +163,11 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
              </div>
              <input 
                 type="text" 
-                placeholder="貼上影片網址" 
+                placeholder="貼上 YouTube 連結 (推薦)" 
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 disabled={isProcessing || disabled}
-                className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 outline-none text-slate-900 dark:text-slate-100 placeholder-slate-400"
+                className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-slate-900 dark:text-slate-100 placeholder-slate-400"
              />
         </div>
 
@@ -143,7 +178,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
             variant="secondary"
         >
             {isProcessing ? <Loader2 className="animate-spin" size={16}/> : <Download size={16} />}
-            {isProcessing ? '正在處理...' : '解析並下載音訊'}
+            {isProcessing ? '分析並下載' : '提取音訊'}
         </Button>
 
         {/* Message Panel */}
@@ -156,24 +191,23 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
             
             {manualDownloadUrl && (
                 <div className="mt-2 pt-2 border-t border-current/10 space-y-2">
-                    <p className="opacity-80 flex items-center gap-1"><HelpCircle size={12}/> 如果下載停滯，請點擊下方手動獲取：</p>
+                    <p className="opacity-80 flex items-center gap-1">如果下載進度卡住，請手動下載：</p>
                     <a 
                         href={manualDownloadUrl} 
                         target="_blank" 
                         rel="noreferrer" 
-                        className="flex items-center justify-center gap-2 w-full py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg transition-all font-bold shadow-sm"
+                        className="flex items-center justify-center gap-2 w-full py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-lg transition-all font-bold shadow-sm"
                     >
-                        <ExternalLink size={14} /> 點擊手動下載 MP3
+                        <ExternalLink size={14} /> 開啟原始音檔連結
                     </a>
-                    <p className="text-[10px] italic text-center opacity-60">下載後請將檔案拖入左側「上載影音」框</p>
                 </div>
             )}
           </div>
         )}
         
         <div className="text-[10px] text-slate-400 dark:text-slate-500 flex justify-between px-1">
-            <span>Server: Vercel Node.js</span>
-            <span>API: Cobalt 10.x</span>
+            <span>Method: Stream Pipeline</span>
+            <span className="flex items-center gap-1"><RefreshCw size={8}/> Auto-Rotate</span>
         </div>
       </div>
     </div>
