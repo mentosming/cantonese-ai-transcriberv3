@@ -512,7 +512,7 @@ const App: React.FC = () => {
                                     <h4 className="font-semibold text-amber-800 dark:text-amber-400 text-xs mb-1 flex items-center"><Crown size={12} className="mr-1"/> Pro 完全版</h4>
                                     <ul className="text-xs text-amber-700 dark:text-amber-500 list-disc list-inside">
                                         <li><strong>無限制轉錄時長</strong></li>
-                                        <li>解鎖長檔案分割工具</li>
+                                        <li>解鎖長檔案分割與網絡下載/錄製工具</li>
                                         <li>優先支援與新功能</li>
                                     </ul>
                                 </div>
@@ -526,8 +526,8 @@ const App: React.FC = () => {
                             <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider mb-3">🚀 使用流程指南</h3>
                             <ol className="text-sm text-slate-600 dark:text-slate-300 space-y-2 list-decimal list-inside">
                                 <li>
-                                    <span className="font-medium text-slate-800 dark:text-slate-200">上載檔案：</span> 
-                                    支援 MP3, M4A, MP4 等格式。如檔案極大 (&gt;1小時)，請先使用下方的「長檔案分割器」。
+                                    <span className="font-medium text-slate-800 dark:text-slate-200">上載與匯入：</span> 
+                                    支援 MP3/MP4 拖放。完全版可直接下載網絡影片音訊 (MP3) 或進行同步錄製。如檔案過大 (&gt;1小時) 請先分割。
                                 </li>
                                 <li>
                                     <span className="font-medium text-slate-800 dark:text-slate-200">AI 設定：</span> 
