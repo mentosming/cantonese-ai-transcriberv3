@@ -62,7 +62,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
           throw new Error("伺服器未返回下載連結");
       }
 
-      // Store URL for fallback immediately
+      // Store URL for fallback
       setManualDownloadUrl(data.url);
       setStatus('正在下載音訊檔案...');
       
@@ -94,7 +94,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
           }
       }
       
-      // Generate filename based on source
+      // Generate filename
       let filename = "network_audio.mp3";
       if (url.includes('youtube') || url.includes('youtu.be')) filename = `yt_${Date.now()}.mp3`;
       else if (url.includes('facebook') || url.includes('fb.watch')) filename = `fb_${Date.now()}.mp3`;
