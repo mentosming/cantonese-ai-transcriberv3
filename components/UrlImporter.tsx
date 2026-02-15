@@ -1,13 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link2, Download, Loader2, AlertCircle, Globe, ExternalLink, ArrowRight, Video, Music, Mic, StopCircle, PlayCircle, X, Layers, CheckCircle2, MonitorPlay, FileDown } from 'lucide-react';
+import { Link2, Download, Loader2, AlertCircle, Globe, ExternalLink, ArrowRight, Video, Music, Mic, StopCircle, PlayCircle, X, Layers, CheckCircle2, MonitorPlay, FileDown, Lock } from 'lucide-react';
 import Button from './Button';
 
 interface UrlImporterProps {
   onFileSelect: (file: File) => void;
   disabled?: boolean;
+  isPro: boolean;
+  onRequestUnlock: () => void;
 }
 
-const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => {
+const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled, isPro, onRequestUnlock }) => {
   const [url, setUrl] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState('');
@@ -231,77 +233,96 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
   };
 
   return (
-    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors animate-fade-in">
-      <div className="flex items-center gap-2 mb-3 text-pink-600 dark:text-pink-400">
-        <Globe size={20} />
-        <h3 className="font-semibold">網絡連結匯入</h3>
-        <span className="px-2 py-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] rounded-full font-bold">V5.4 (Download+)</span>
-      </div>
+    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors animate-fade-in relative overflow-hidden">
       
-      <div className="flex flex-col gap-3">
-        <div className="relative">
-             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                <Link2 size={16} />
-             </div>
-             <input 
-                type="text" 
-                placeholder="貼上影片連結 (YouTube, Instagram...)" 
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                disabled={isProcessing || isRecording || disabled}
-                className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 outline-none text-slate-900 dark:text-slate-100 placeholder-slate-400"
-             />
-        </div>
-
-        <div className="flex gap-2">
-            <Button 
-                onClick={() => handleImport(false)} 
-                disabled={!url || isProcessing || disabled}
-                className="flex-1 text-xs"
-                variant="secondary"
-                title="解析並自動匯入到轉錄區"
-            >
-                {isProcessing && status.includes('自動') ? <Loader2 className="animate-spin" size={14}/> : <ArrowRight size={14} />} 快速匯入
-            </Button>
-            
-            <Button 
-                onClick={handleDownload} 
-                disabled={!url || isProcessing || disabled}
-                className="w-28 text-xs bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200"
-                variant="secondary"
-                title="僅下載 MP3 檔案"
-            >
-               {isProcessing && status.includes('下載') ? <Loader2 className="animate-spin" size={14}/> : <FileDown size={14} />} 下載 MP3
-            </Button>
-
-            <Button 
-                onClick={() => { setShowRecorder(true); setForceEmbed(false); }} 
-                disabled={!url || isProcessing || disabled}
-                className="flex-1 text-xs bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-300"
-                variant="secondary"
-            >
-                <Mic size={14} /> 同步錄製
+      {/* Lock Overlay */}
+      {!isPro && (
+        <div className="absolute inset-0 z-20 bg-white/60 dark:bg-slate-900/60 backdrop-blur-[2px] flex flex-col items-center justify-center text-center p-4">
+            <div className="p-3 bg-slate-800 dark:bg-black text-white rounded-full mb-3 shadow-lg">
+                <Lock size={24} />
+            </div>
+            <h3 className="font-bold text-slate-800 dark:text-white">完全版功能</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-300 mb-4 max-w-[200px]">
+                網絡連結匯入與錄製功能僅供完全版用戶使用。
+            </p>
+            <Button onClick={onRequestUnlock} className="text-xs h-8 shadow-md bg-gradient-to-r from-blue-600 to-indigo-600">
+                輸入通行碼
             </Button>
         </div>
+      )}
 
-        {status && !error && (
-            <div className="px-2 py-1 flex items-center justify-center gap-2 text-xs text-blue-600 dark:text-blue-400 animate-pulse">
-                <Loader2 size={12} className="animate-spin" /> {status}
+      <div className={!isPro ? 'opacity-20 pointer-events-none' : ''}>
+        <div className="flex items-center gap-2 mb-3 text-pink-600 dark:text-pink-400">
+            <Globe size={20} />
+            <h3 className="font-semibold">網絡連結匯入</h3>
+            <span className="px-2 py-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] rounded-full font-bold">V5.4 (Download+)</span>
+        </div>
+        
+        <div className="flex flex-col gap-3">
+            <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <Link2 size={16} />
+                </div>
+                <input 
+                    type="text" 
+                    placeholder="貼上影片連結 (YouTube, Instagram...)" 
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    disabled={isProcessing || isRecording || disabled}
+                    className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-pink-500 outline-none text-slate-900 dark:text-slate-100 placeholder-slate-400"
+                />
             </div>
-        )}
 
-        {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg animate-fade-in">
-                <p className="text-[11px] text-red-600 dark:text-red-300 mb-2 flex items-center gap-1">
-                    <AlertCircle size={14} /> {error}
-                </p>
-                {manualData && (
-                    <a href={manualData.url} target="_blank" rel="noreferrer" className="text-[11px] font-bold text-blue-600 dark:text-blue-400 underline flex items-center gap-1">
-                        <ExternalLink size={12}/> 嘗試手動下載檔案
-                    </a>
-                )}
+            <div className="flex gap-2">
+                <Button 
+                    onClick={() => handleImport(false)} 
+                    disabled={!url || isProcessing || disabled}
+                    className="flex-1 text-xs"
+                    variant="secondary"
+                    title="解析並自動匯入到轉錄區"
+                >
+                    {isProcessing && status.includes('自動') ? <Loader2 className="animate-spin" size={14}/> : <ArrowRight size={14} />} 快速匯入
+                </Button>
+                
+                <Button 
+                    onClick={handleDownload} 
+                    disabled={!url || isProcessing || disabled}
+                    className="w-28 text-xs bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200"
+                    variant="secondary"
+                    title="僅下載 MP3 檔案"
+                >
+                {isProcessing && status.includes('下載') ? <Loader2 className="animate-spin" size={14}/> : <FileDown size={14} />} 下載 MP3
+                </Button>
+
+                <Button 
+                    onClick={() => { setShowRecorder(true); setForceEmbed(false); }} 
+                    disabled={!url || isProcessing || disabled}
+                    className="flex-1 text-xs bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-300"
+                    variant="secondary"
+                >
+                    <Mic size={14} /> 同步錄製
+                </Button>
             </div>
-        )}
+
+            {status && !error && (
+                <div className="px-2 py-1 flex items-center justify-center gap-2 text-xs text-blue-600 dark:text-blue-400 animate-pulse">
+                    <Loader2 size={12} className="animate-spin" /> {status}
+                </div>
+            )}
+
+            {error && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg animate-fade-in">
+                    <p className="text-[11px] text-red-600 dark:text-red-300 mb-2 flex items-center gap-1">
+                        <AlertCircle size={14} /> {error}
+                    </p>
+                    {manualData && (
+                        <a href={manualData.url} target="_blank" rel="noreferrer" className="text-[11px] font-bold text-blue-600 dark:text-blue-400 underline flex items-center gap-1">
+                            <ExternalLink size={12}/> 嘗試手動下載檔案
+                        </a>
+                    )}
+                </div>
+            )}
+        </div>
       </div>
 
       {/* Synchronized Recording Modal */}

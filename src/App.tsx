@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, AlertCircle, PlayCircle, StopCircle, CheckCircle2, Loader2, UploadCloud, FileText, Sparkles, BookOpen, ChevronUp, ChevronDown, Coffee, Lock, UserCog, Unlock, Crown, X, Chrome, Moon, Sun, Type, Heart, Key } from 'lucide-react';
 import FileUpload from './components/FileUpload';
@@ -7,7 +6,7 @@ import TranscriptionView from './components/TranscriptionView';
 import SummaryPanel from './components/SummaryPanel';
 import FileSplitter from './components/FileSplitter';
 import AudioExtractor from './components/AudioExtractor';
-import UrlImporter from './components/UrlImporter'; // Import Added
+import UrlImporter from './components/UrlImporter'; 
 import Button from './components/Button';
 import AdminPanel from './components/AdminPanel';
 import { TranscriptionSettings, ProcessingStatus, TranscriptionError } from './types';
@@ -647,7 +646,12 @@ const App: React.FC = () => {
                  <div>
                     <h2 className="text-sm uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold mb-3">4. 輔助工具</h2>
                     <div className="flex flex-col gap-6">
-                        <UrlImporter onFileSelect={handleFileSelect} disabled={status === 'uploading' || status === 'transcribing'} />
+                        <UrlImporter 
+                            onFileSelect={handleFileSelect} 
+                            disabled={status === 'uploading' || status === 'transcribing'} 
+                            isPro={isPro}
+                            onRequestUnlock={() => setShowLoginModal(true)}
+                        />
                         <FileSplitter 
                             onSelectSegment={handleFileSelect} 
                             isPro={isPro}
