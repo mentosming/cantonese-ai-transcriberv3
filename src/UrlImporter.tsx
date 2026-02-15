@@ -62,7 +62,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
           throw new Error("伺服器未返回下載連結");
       }
 
-      // Store URL for fallback
+      // Store URL for fallback immediately
       setManualDownloadUrl(data.url);
       setStatus('正在下載音訊檔案...');
       
@@ -94,11 +94,12 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
           }
       }
       
-      // Generate filename
+      // Generate filename based on source
       let filename = "network_audio.mp3";
       if (url.includes('youtube') || url.includes('youtu.be')) filename = `yt_${Date.now()}.mp3`;
       else if (url.includes('facebook') || url.includes('fb.watch')) filename = `fb_${Date.now()}.mp3`;
       else if (url.includes('instagram')) filename = `ig_${Date.now()}.mp3`;
+      else if (url.includes('tiktok')) filename = `tiktok_${Date.now()}.mp3`;
       
       const file = new File([blob], filename, { type: 'audio/mpeg' });
       
@@ -179,12 +180,12 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
                 className="flex items-center justify-center gap-2 w-full py-2 bg-pink-50 hover:bg-pink-100 dark:bg-pink-900/20 dark:hover:bg-pink-900/40 text-pink-700 dark:text-pink-300 border border-pink-200 dark:border-pink-800 rounded-lg transition-colors text-xs font-bold animate-pulse"
             >
                 <ExternalLink size={14} />
-                點擊此處手動下載檔案 (.mp3)
+                無法自動載入？點擊此處手動下載 MP3
             </a>
         )}
         
         <div className="text-[10px] text-slate-400 dark:text-slate-500 text-center mt-1">
-            * 支援服務由 Cobalt API 提供。若自動下載失敗，請使用手動下載。
+            * 支援服務由 Cobalt API 提供。若自動下載失敗，請使用上方按鈕手動下載。
         </div>
       </div>
     </div>
