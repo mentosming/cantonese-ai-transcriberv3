@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link2, Download, Loader2, AlertCircle, CheckCircle2, Globe, ExternalLink } from 'lucide-react';
+import { Link2, Download, Loader2, AlertCircle, CheckCircle2, Globe, ExternalLink, HelpCircle } from 'lucide-react';
 import Button from './Button';
 
 interface UrlImporterProps {
@@ -18,7 +18,6 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
   const handleImport = async () => {
     if (!url) return;
     
-    // Basic validation
     if (!url.match(/^(http|https):\/\//)) {
         setError("請輸入有效的網址 (需包含 http:// 或 https://)");
         return;
@@ -27,12 +26,11 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
     setIsProcessing(true);
     setError(null);
     setManualDownloadUrl(null);
-    setStatus('正在連線至媒體伺服器...');
+    setStatus('正在連線至 Cobalt 伺服器解析連結...');
 
     try {
-      // Use Cobalt API (Public Instance) for extraction
+      // Step 1: Resolve link via Cobalt
       const apiEndpoint = "https://api.cobalt.tools/api/json";
-      
       const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
@@ -41,83 +39,70 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
         },
         body: JSON.stringify({
           url: url,
-          vCodec: "h264",
-          vQuality: "720",
           aFormat: "mp3",
           isAudioOnly: true
         })
       });
 
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-      }
-
+      if (!response.ok) throw new Error(`解析失敗: ${response.status}`);
       const data = await response.json();
+      if (data.status === 'error') throw new Error(data.text || "解析錯誤");
+      if (!data.url) throw new Error("解析成功但未獲得下載網址");
 
-      if (data.status === 'error') {
-          throw new Error(data.text || "無法解析此連結");
-      }
-
-      if (!data.url) {
-          throw new Error("伺服器未返回下載連結");
-      }
-
-      // Store URL for fallback
-      setManualDownloadUrl(data.url);
-      setStatus('正在下載音訊檔案...');
+      const targetMediaUrl = data.url;
+      setManualDownloadUrl(targetMediaUrl);
+      setStatus('解析成功，正在下載媒體檔案...');
       
-      let blob: Blob;
+      let blob: Blob | null = null;
 
+      // --- STRATEGY 1: Internal Vercel Proxy (Most Reliable) ---
       try {
-          // Strategy 1: Direct Download
-          // Some CDNs might allow CORS, try direct first
-          const directRes = await fetch(data.url);
-          if (directRes.ok) {
-              blob = await directRes.blob();
-          } else {
-              throw new Error("Direct fetch failed");
-          }
-      } catch (directErr) {
-          console.warn("直接下載失敗 (CORS)，嘗試使用 Proxy...", directErr);
-          setStatus('正在嘗試繞過 CORS 限制...');
-          
-          // Strategy 2: CORS Proxy
-          // Use a public CORS proxy to bypass the browser restriction
-          try {
-              const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(data.url)}`;
-              const proxyRes = await fetch(proxyUrl);
-              if (!proxyRes.ok) throw new Error("Proxy fetch failed");
+          setStatus('正在透過內部 Proxy 傳輸...');
+          const internalProxyUrl = `/api/proxy?url=${encodeURIComponent(targetMediaUrl)}`;
+          const proxyRes = await fetch(internalProxyUrl);
+          if (proxyRes.ok) {
               blob = await proxyRes.blob();
-          } catch (proxyErr) {
-              console.error("Proxy failed", proxyErr);
-              throw new Error("CORS_BLOCK"); // Special error code to trigger manual download UI
+          } else {
+              throw new Error("Internal proxy failed");
+          }
+      } catch (proxyErr) {
+          console.warn("內部 Proxy 失敗，嘗試備用方案...", proxyErr);
+          
+          // --- STRATEGY 2: Public Proxy (AllOrigins) ---
+          try {
+              setStatus('正在嘗試備用公共代理...');
+              const publicProxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetMediaUrl)}`;
+              const allOriginsRes = await fetch(publicProxy);
+              if (allOriginsRes.ok) {
+                  blob = await allOriginsRes.blob();
+              } else {
+                  throw new Error("Public proxy failed");
+              }
+          } catch (allOriginsErr) {
+              console.error("所有下載嘗試均失敗", allOriginsErr);
+              throw new Error("CORS_BLOCK");
           }
       }
+
+      if (!blob) throw new Error("無法獲取檔案內容");
       
       // Generate filename
-      let filename = "network_audio.mp3";
-      if (url.includes('youtube') || url.includes('youtu.be')) filename = `yt_${Date.now()}.mp3`;
-      else if (url.includes('facebook') || url.includes('fb.watch')) filename = `fb_${Date.now()}.mp3`;
-      else if (url.includes('instagram')) filename = `ig_${Date.now()}.mp3`;
-      else if (url.includes('tiktok')) filename = `tiktok_${Date.now()}.mp3`;
-      
+      const filename = `network_${Date.now()}.mp3`;
       const file = new File([blob], filename, { type: 'audio/mpeg' });
       
-      setStatus('完成！');
+      setStatus('完成！檔案已載入。');
       onFileSelect(file);
       setUrl(''); 
-      setManualDownloadUrl(null); // Clear fallback on success
+      setManualDownloadUrl(null);
       
       setTimeout(() => setStatus(''), 3000);
 
     } catch (err: any) {
       console.error(err);
       if (err.message === 'CORS_BLOCK') {
-          setError("瀏覽器攔截了自動下載。請點擊下方的按鈕手動下載檔案，然後拖入上方的「上載影音」框中。");
+          setError("瀏覽器安全性限制下載。請點擊下方的「手動下載」按鈕，存檔後拖入軟體。");
       } else {
-          let msg = err.message || "發生未知錯誤";
-          if (msg.includes('Failed to fetch')) msg = "網絡連線失敗或被攔截。";
-          setError(msg);
+          setError(err.message || "匯入過程發生錯誤");
       }
     } finally {
       setIsProcessing(false);
@@ -128,12 +113,12 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
     <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors animate-fade-in">
       <div className="flex items-center gap-2 mb-3 text-pink-600 dark:text-pink-400">
         <Globe size={20} />
-        <h3 className="font-semibold">網絡連結匯入</h3>
-        <span className="px-1.5 py-0.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 text-[10px] rounded-full font-bold">NEW</span>
+        <h3 className="font-semibold">雲端連結匯入 (雙重代理版)</h3>
+        <span className="px-1.5 py-0.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 text-[10px] rounded-full font-bold">PRO</span>
       </div>
       
-      <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-        貼上 YouTube, Facebook, Instagram 或 TikTok 連結，系統將嘗試提取音訊並直接載入。
+      <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
+        內置 Vercel 伺服器代理，自動繞過 CORS 限制。支援 YouTube、FB、IG、TikTok 等主流平台。
       </p>
 
       <div className="flex flex-col gap-3">
@@ -143,7 +128,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
              </div>
              <input 
                 type="text" 
-                placeholder="貼上影片網址 (e.g., https://youtu.be/...)" 
+                placeholder="貼上影片網址" 
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 disabled={isProcessing || disabled}
@@ -158,34 +143,37 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
             variant="secondary"
         >
             {isProcessing ? <Loader2 className="animate-spin" size={16}/> : <Download size={16} />}
-            {isProcessing ? '正在處理雲端檔案...' : '提取音訊'}
+            {isProcessing ? '正在處理...' : '解析並下載音訊'}
         </Button>
 
-        {/* Status / Error Messages */}
+        {/* Message Panel */}
         {(status || error) && (
-          <div className={`p-2 rounded-lg text-xs flex items-start gap-2 ${error ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300' : 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-300'}`}>
-            {error ? <AlertCircle size={14} className="shrink-0 mt-0.5"/> : (status === '完成！' ? <CheckCircle2 size={14} className="shrink-0 mt-0.5"/> : <Loader2 size={14} className="shrink-0 mt-0.5 animate-spin"/>)}
-            <div className="flex-1 break-all">
-                {error || status}
+          <div className={`p-3 rounded-lg text-xs flex flex-col gap-2 ${error ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300 border border-red-100 dark:border-red-800/50' : 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300 border border-blue-100 dark:border-blue-800/50'}`}>
+            <div className="flex items-start gap-2">
+                {error ? <AlertCircle size={14} className="shrink-0 mt-0.5"/> : <Loader2 size={14} className="shrink-0 mt-0.5 animate-spin"/>}
+                <div className="flex-1 font-medium">{error || status}</div>
             </div>
+            
+            {manualDownloadUrl && (
+                <div className="mt-2 pt-2 border-t border-current/10 space-y-2">
+                    <p className="opacity-80 flex items-center gap-1"><HelpCircle size={12}/> 如果下載停滯，請點擊下方手動獲取：</p>
+                    <a 
+                        href={manualDownloadUrl} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className="flex items-center justify-center gap-2 w-full py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg transition-all font-bold shadow-sm"
+                    >
+                        <ExternalLink size={14} /> 點擊手動下載 MP3
+                    </a>
+                    <p className="text-[10px] italic text-center opacity-60">下載後請將檔案拖入左側「上載影音」框</p>
+                </div>
+            )}
           </div>
         )}
-
-        {/* Manual Download Fallback Button */}
-        {manualDownloadUrl && error && (
-            <a 
-                href={manualDownloadUrl} 
-                target="_blank" 
-                rel="noreferrer" 
-                className="flex items-center justify-center gap-2 w-full py-2 bg-pink-50 hover:bg-pink-100 dark:bg-pink-900/20 dark:hover:bg-pink-900/40 text-pink-700 dark:text-pink-300 border border-pink-200 dark:border-pink-800 rounded-lg transition-colors text-xs font-bold animate-pulse"
-            >
-                <ExternalLink size={14} />
-                無法自動載入？點擊此處手動下載 MP3
-            </a>
-        )}
         
-        <div className="text-[10px] text-slate-400 dark:text-slate-500 text-center mt-1">
-            * 支援服務由 Cobalt API 提供。若自動下載失敗，請使用上方按鈕手動下載。
+        <div className="text-[10px] text-slate-400 dark:text-slate-500 flex justify-between px-1">
+            <span>Server: Vercel Node.js</span>
+            <span>API: Cobalt 10.x</span>
         </div>
       </div>
     </div>
