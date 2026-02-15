@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link2, Download, Loader2, AlertCircle, CheckCircle2, Globe, ArrowRight } from 'lucide-react';
+import { Link2, Download, Loader2, AlertCircle, Globe, ExternalLink, ArrowRight } from 'lucide-react';
 import Button from './Button';
 
 interface UrlImporterProps {
@@ -13,26 +13,24 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [manualData, setManualData] = useState<{url: string, filename: string} | null>(null);
 
-  const handleImport = async () => {
+  const handleImport = async (useVideoMode: boolean = false) => {
     if (!url) return;
     
-    // Basic validation
     if (!url.match(/^(http|https):\/\//)) {
-        setError("請輸入有效的網址 (需包含 http:// 或 https://)");
+        setError("請輸入正確網址");
         return;
     }
 
     setIsProcessing(true);
     setError(null);
-    setStatus('正在連線至媒體伺服器...');
+    setManualData(null);
+    setStatus(useVideoMode ? '嘗試以影片模式解析 (成功率較高)...' : '正在解析連結...');
 
     try {
-      // Use Cobalt API (Public Instance) for extraction
-      // Documentation: https://github.com/imputnet/cobalt/blob/current/docs/api.md
-      const apiEndpoint = "https://api.cobalt.tools/api/json";
-      
-      const response = await fetch(apiEndpoint, {
+      // 1. Cobalt API Request
+      const response = await fetch("https://api.cobalt.tools/api/json", {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
@@ -40,64 +38,74 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
         },
         body: JSON.stringify({
           url: url,
-          vCodec: "h264",
           vQuality: "720",
-          aFormat: "mp3", // Request MP3 directly
-          isAudioOnly: true
+          aFormat: "mp3",
+          isAudioOnly: !useVideoMode, // If audio fails, try video
+          filenameStyle: "pretty"
         })
       });
 
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-      }
-
+      if (!response.ok) throw new Error(`解析伺服器忙碌中 (${response.status})`);
       const data = await response.json();
-
+      
       if (data.status === 'error') {
-          throw new Error(data.text || "無法解析此連結");
+          if (!useVideoMode) {
+              // Auto-retry with video mode if audio mode fails
+              console.log("Audio mode failed, retrying with video mode...");
+              return handleImport(true);
+          }
+          throw new Error(data.text || "連結無法解析");
       }
 
-      if (!data.url) {
-          throw new Error("伺服器未返回下載連結");
+      if (!data.url) throw new Error("未找到下載連結");
+
+      const targetUrl = data.url;
+      const filename = data.filename || `media_${Date.now()}.${useVideoMode ? 'mp4' : 'mp3'}`;
+      
+      // Store for manual backup immediately
+      setManualData({ url: targetUrl, filename });
+      setStatus('連結已就緒，開始下載...');
+
+      // 2. Download Strategy: Local Proxy -> Public Proxy -> Manual
+      let blob: Blob | null = null;
+      
+      // Attempt A: Local Edge Proxy (Best for Vercel deployment)
+      // Note: In local Vite dev (without backend), this might return index.html (200 OK) but fail blob check or be skipped.
+      try {
+          const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+          const res = await fetch(proxyUrl);
+          const contentType = res.headers.get('content-type');
+          if (res.ok && contentType && !contentType.includes('text/html')) {
+              blob = await res.blob();
+          }
+      } catch (e) { console.warn("Local proxy failed"); }
+
+      // Attempt B: Public CORS Proxy Fallback
+      if (!blob) {
+          try {
+              setStatus('正在透過公共通道下載 (可能需要較長時間)...');
+              const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
+              if (res.ok) blob = await res.blob();
+          } catch (e) { console.warn("Public proxy failed"); }
       }
 
-      setStatus('正在下載音訊檔案...');
+      if (!blob) throw new Error("AUTO_DOWNLOAD_FAILED");
+
+      const file = new File([blob], filename, { type: blob.type || (useVideoMode ? 'video/mp4' : 'audio/mpeg') });
       
-      // Fetch the actual audio file
-      // Note: This might hit CORS issues depending on the source. 
-      // If CORS fails, we might need a fallback.
-      const mediaRes = await fetch(data.url);
-      
-      if (!mediaRes.ok) throw new Error("無法下載音訊串流 (CORS 或 連結失效)");
-      
-      const blob = await mediaRes.blob();
-      
-      // Generate a filename based on URL or timestamp
-      let filename = "network_audio.mp3";
-      // Try to get filename from content-disposition if exposed, otherwise generic
-      if (url.includes('youtube') || url.includes('youtu.be')) filename = `yt_audio_${Date.now()}.mp3`;
-      else if (url.includes('facebook') || url.includes('fb.watch')) filename = `fb_audio_${Date.now()}.mp3`;
-      else if (url.includes('instagram')) filename = `ig_audio_${Date.now()}.mp3`;
-      
-      const file = new File([blob], filename, { type: 'audio/mpeg' });
-      
-      setStatus('完成！');
+      setStatus('成功匯入！');
       onFileSelect(file);
-      setUrl(''); // Clear input on success
-      
-      // Clear success msg after 3s
+      setUrl('');
+      setManualData(null);
       setTimeout(() => setStatus(''), 3000);
 
     } catch (err: any) {
       console.error(err);
-      let msg = "匯入失敗。";
-      
-      if (err.message.includes('Failed to fetch') || err.message.includes('CORS')) {
-          msg = "下載被瀏覽器攔截 (CORS)。請點擊下方按鈕手動下載，然後拖入框中。";
+      if (err.message === 'AUTO_DOWNLOAD_FAILED') {
+          setError("瀏覽器攔截了自動下載，請使用下方的「手動下載」按鈕。");
       } else {
-          msg = err.message || "發生未知錯誤";
+          setError(err.message || "發生未知錯誤");
       }
-      setError(msg);
     } finally {
       setIsProcessing(false);
     }
@@ -108,11 +116,11 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       <div className="flex items-center gap-2 mb-3 text-pink-600 dark:text-pink-400">
         <Globe size={20} />
         <h3 className="font-semibold">網絡連結匯入</h3>
-        <span className="px-1.5 py-0.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 text-[10px] rounded-full font-bold">NEW</span>
+        <span className="px-1.5 py-0.5 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 text-[10px] rounded-full font-bold">V3.0 (Smart)</span>
       </div>
       
-      <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-        貼上 YouTube, Facebook, Instagram 或 TikTok 連結，系統將嘗試提取音訊並直接載入。
+      <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
+        貼上 YouTube/FB 連結。系統會自動嘗試「純音訊」或「極小影片」模式提取內容。
       </p>
 
       <div className="flex flex-col gap-3">
@@ -122,7 +130,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
              </div>
              <input 
                 type="text" 
-                placeholder="貼上影片網址 (e.g., https://youtu.be/...)" 
+                placeholder="貼上影片連結..." 
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 disabled={isProcessing || disabled}
@@ -131,40 +139,55 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
         </div>
 
         <Button 
-            onClick={handleImport} 
+            onClick={() => handleImport(false)} 
             disabled={!url || isProcessing || disabled}
-            className="w-full text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+            className="w-full text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 shadow-sm"
             variant="secondary"
         >
             {isProcessing ? <Loader2 className="animate-spin" size={16}/> : <Download size={16} />}
-            {isProcessing ? '正在處理雲端檔案...' : '提取音訊'}
+            {isProcessing ? '正在嘗試提取...' : '自動提取並載入'}
         </Button>
 
-        {/* Status / Error Messages */}
-        {(status || error) && (
-          <div className={`p-2 rounded-lg text-xs flex items-start gap-2 ${error ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300' : 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-300'}`}>
-            {error ? <AlertCircle size={14} className="shrink-0 mt-0.5"/> : (status === '完成！' ? <CheckCircle2 size={14} className="shrink-0 mt-0.5"/> : <Loader2 size={14} className="shrink-0 mt-0.5 animate-spin"/>)}
-            <div className="flex-1 break-all">
-                {error || status}
-                {/* Fallback for CORS errors */}
-                {error && error.includes('CORS') && (
-                     <div className="mt-2">
-                        <a 
-                            href="https://cobalt.tools/" 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            className="inline-flex items-center gap-1 text-pink-600 dark:text-pink-400 font-bold hover:underline"
-                        >
-                            前往下載工具網站 <ArrowRight size={10} />
-                        </a>
-                     </div>
-                )}
+        {/* Status Display */}
+        {status && !error && (
+            <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg animate-pulse">
+                <Loader2 size={14} className="animate-spin"/>
+                {status}
             </div>
+        )}
+
+        {/* Error & Manual Download UI (The Bulletproof Solution) */}
+        {error && (
+          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg">
+            <div className="flex items-start gap-2 text-xs text-red-600 dark:text-red-300 mb-3">
+                <AlertCircle size={14} className="shrink-0 mt-0.5"/>
+                <span>{error}</span>
+            </div>
+            
+            {manualData && (
+                <div className="space-y-2 pt-2 border-t border-red-100 dark:border-red-800">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">手動模式 (100% 成功)：</p>
+                    <a 
+                        href={manualData.url} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="flex items-center justify-between gap-2 w-full p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all shadow-md group"
+                    >
+                        <span className="text-xs font-bold flex items-center gap-2">
+                            <ExternalLink size={14}/> 1. 點擊這裡下載檔案
+                        </span>
+                        <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform"/>
+                    </a>
+                    <p className="text-[10px] text-slate-400 leading-tight">
+                        2. 下載完成後，請將檔案從電腦<strong>拖入上方</strong>「上載影音」框內即可。
+                    </p>
+                </div>
+            )}
           </div>
         )}
         
         <div className="text-[10px] text-slate-400 dark:text-slate-500 text-center mt-1">
-            * 支援服務由 Cobalt API 提供，可能因地區限制失效。
+            * 影片模式下載較慢，但成功率通常較高。
         </div>
       </div>
     </div>
