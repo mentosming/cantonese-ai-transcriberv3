@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link2, Download, Loader2, AlertCircle, Globe, ExternalLink, ArrowRight, Video, Music, Mic, StopCircle, PlayCircle, X, Layers, CheckCircle2, MonitorPlay } from 'lucide-react';
+import { Link2, Download, Loader2, AlertCircle, Globe, ExternalLink, ArrowRight, Video, Music, Mic, StopCircle, PlayCircle, X, Layers, CheckCircle2, MonitorPlay, FileDown } from 'lucide-react';
 import Button from './Button';
 
 interface UrlImporterProps {
@@ -94,8 +94,58 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       onFileSelect(file);
       setUrl('');
       setManualData(null);
+      setStatus('');
     } catch (err: any) {
       setError("無法直接下載該影片。請使用下方的「同步錄製」功能。");
+      setStatus('');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!url) return;
+    if (!url.match(/^(http|https):\/\//)) {
+        setError("請輸入正確網址");
+        return;
+    }
+
+    setIsProcessing(true);
+    setError(null);
+    setStatus('正在準備下載...');
+
+    try {
+      const response = await fetch("https://api.cobalt.tools/api/json", {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, vQuality: "720", aFormat: "mp3", isAudioOnly: true })
+      });
+
+      const data = await response.json();
+      if (data.status === 'error' || !data.url) throw new Error("AUTO_FAILED");
+      
+      setStatus('正在下載檔案...');
+      
+      const proxyUrl = `/api/proxy?url=${encodeURIComponent(data.url)}`;
+      const res = await fetch(proxyUrl);
+      if (!res.ok) throw new Error("PROXY_FAILED");
+
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = data.filename || `download_${Date.now()}.mp3`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+      
+      setStatus('下載完成！');
+      setTimeout(() => setStatus(''), 3000);
+      setUrl('');
+    } catch (err: any) {
+      setError("下載失敗，請嘗試使用錄製模式。");
+      setStatus('');
     } finally {
       setIsProcessing(false);
     }
@@ -172,7 +222,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       <div className="flex items-center gap-2 mb-3 text-pink-600 dark:text-pink-400">
         <Globe size={20} />
         <h3 className="font-semibold">網絡連結匯入</h3>
-        <span className="px-2 py-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] rounded-full font-bold">V5.3 (Anti-Block)</span>
+        <span className="px-2 py-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] rounded-full font-bold">V5.4 (Download+)</span>
       </div>
       
       <div className="flex flex-col gap-3">
@@ -182,7 +232,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
              </div>
              <input 
                 type="text" 
-                placeholder="貼上影片連結..." 
+                placeholder="貼上影片連結 (YouTube, Instagram...)" 
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 disabled={isProcessing || isRecording || disabled}
@@ -196,9 +246,21 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
                 disabled={!url || isProcessing || disabled}
                 className="flex-1 text-xs"
                 variant="secondary"
+                title="解析並自動匯入到轉錄區"
             >
-                {isProcessing ? <Loader2 className="animate-spin" size={14}/> : <Download size={14} />} 快速解析
+                {isProcessing && status.includes('自動') ? <Loader2 className="animate-spin" size={14}/> : <ArrowRight size={14} />} 快速匯入
             </Button>
+            
+            <Button 
+                onClick={handleDownload} 
+                disabled={!url || isProcessing || disabled}
+                className="w-28 text-xs bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200"
+                variant="secondary"
+                title="僅下載 MP3 檔案"
+            >
+               {isProcessing && status.includes('下載') ? <Loader2 className="animate-spin" size={14}/> : <FileDown size={14} />} 下載 MP3
+            </Button>
+
             <Button 
                 onClick={() => { setShowRecorder(true); setForceEmbed(false); }} 
                 disabled={!url || isProcessing || disabled}
@@ -208,6 +270,12 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
                 <Mic size={14} /> 同步錄製
             </Button>
         </div>
+
+        {status && !error && (
+            <div className="px-2 py-1 flex items-center justify-center gap-2 text-xs text-blue-600 dark:text-blue-400 animate-pulse">
+                <Loader2 size={12} className="animate-spin" /> {status}
+            </div>
+        )}
 
         {error && (
             <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg animate-fade-in">
