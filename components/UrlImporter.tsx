@@ -206,6 +206,19 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       setIsRecording(false);
     }
   };
+  
+  // New function to download the recorded blob directly
+  const handleDownloadRecording = () => {
+    if (!recordedBlob) return;
+    const downloadUrl = window.URL.createObjectURL(recordedBlob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `recording_${Date.now()}.webm`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
+  };
 
   const handleUseRecording = () => {
     if (recordedBlob) {
@@ -406,7 +419,10 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
                                     <Button onClick={handleUseRecording} className="flex-1 h-10 bg-green-600 hover:bg-green-700 font-bold shadow-md">
                                         使用此錄音進行轉錄
                                     </Button>
-                                    <Button variant="secondary" onClick={() => setRecordedBlob(null)} className="px-4 dark:bg-slate-700 dark:text-slate-300">
+                                    <Button variant="secondary" onClick={handleDownloadRecording} className="px-4 dark:bg-slate-700 dark:text-slate-300" title="下載錄音檔">
+                                        <Download size={18} />
+                                    </Button>
+                                    <Button variant="secondary" onClick={() => setRecordedBlob(null)} className="px-4 dark:bg-slate-700 dark:text-slate-300" title="重新錄製">
                                         重錄
                                     </Button>
                                 </div>
