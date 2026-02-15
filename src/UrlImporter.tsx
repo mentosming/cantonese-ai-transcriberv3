@@ -51,6 +51,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       if (data.status === 'error') {
           if (!useVideoMode) {
               // Auto-retry with video mode if audio mode fails
+              console.log("Audio mode failed, retrying with video mode...");
               return handleImport(true);
           }
           throw new Error(data.text || "連結無法解析");
@@ -70,7 +71,8 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       
       // Attempt A: Local Edge Proxy
       try {
-          const res = await fetch(`/api/proxy?url=${encodeURIComponent(targetUrl)}`);
+          const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+          const res = await fetch(proxyUrl);
           if (res.ok) blob = await res.blob();
       } catch (e) { console.warn("Local proxy failed"); }
 
