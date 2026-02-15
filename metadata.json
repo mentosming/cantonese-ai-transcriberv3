@@ -1,5 +1,7 @@
 {
-  "name": "Copy of Copy of Cantonese-ai-transcriber v3.5 2026-02-14 2000hrs",
-  "description": "專業廣東話語音轉文字工具，使用 Gemini 3.0 Pro，支援中英夾雜、說話者辨識及長檔案分割處理。",
-  "requestFramePermissions": []
+  "name": "Cantonese AI Transcriber V5.0",
+  "description": "專業廣東話語音轉文字工具，支援網絡連結錄製備援、說話者辨識及長檔案處理。",
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }
