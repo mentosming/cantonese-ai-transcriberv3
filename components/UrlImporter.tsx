@@ -41,7 +41,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
           url: url,
           vQuality: "720",
           aFormat: "mp3",
-          isAudioOnly: !useVideoMode, // If audio fails, fallback to video might help
+          isAudioOnly: !useVideoMode, 
           filenameStyle: "pretty"
         })
       });
@@ -62,43 +62,33 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       const targetUrl = data.url;
       const filename = data.filename || `media_${Date.now()}.${useVideoMode ? 'mp4' : 'mp3'}`;
       
-      // Save for manual backup immediately
+      // Save for manual backup immediately - this ensures if auto-download fails, we have the link
       setManualData({ url: targetUrl, filename });
       setStatus('連結已就緒，正在嘗試自動下載...');
 
-      // 2. Smart Download Strategy
+      // 2. Try Auto Download (Might fail due to CORS)
       let blob: Blob | null = null;
       
-      // Strategy A: Local Edge Proxy (For Vercel)
       try {
+          // Try local proxy first (works in production/Vercel)
           const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
           const res = await fetch(proxyUrl);
           const contentType = res.headers.get('content-type');
-          // Filter out HTML responses (which usually mean 404/fallback in Vite dev)
           if (res.ok && contentType && !contentType.includes('text/html')) {
               blob = await res.blob();
+          } else {
+             // If local proxy fails, try public proxy
+             const publicProxyRes = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
+             if (publicProxyRes.ok) blob = await publicProxyRes.blob();
           }
-      } catch (e) { console.warn("Local proxy skipped"); }
-
-      // Strategy B: Public CORS Proxy (Fastest)
-      if (!blob) {
-          try {
-              setStatus('嘗試透過公共通道 A 下載...');
-              const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
-              if (res.ok) blob = await res.blob();
-          } catch (e) { console.warn("Public proxy A failed"); }
+      } catch (e) { 
+          console.warn("Auto download failed, falling back to manual"); 
       }
 
-      // Strategy C: Public CORS Proxy (Backup)
       if (!blob) {
-          try {
-              setStatus('嘗試透過公共通道 B 下載...');
-              const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
-              if (res.ok) blob = await res.blob();
-          } catch (e) { console.warn("Public proxy B failed"); }
+          // Throw specific error to trigger UI manual mode
+          throw new Error("AUTO_DOWNLOAD_FAILED");
       }
-
-      if (!blob) throw new Error("AUTO_DOWNLOAD_FAILED");
 
       const file = new File([blob], filename, { type: blob.type || (useVideoMode ? 'video/mp4' : 'audio/mpeg') });
       
@@ -111,7 +101,8 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
     } catch (err: any) {
       console.error(err);
       if (err.message === 'AUTO_DOWNLOAD_FAILED' || err.message.includes('fetch')) {
-          setError("瀏覽器攔截了自動下載，請點擊下方按鈕手動下載。");
+          // This is the expected behavior for many sites due to security
+          setError("瀏覽器安全性攔截了自動下載。請點擊下方按鈕手動下載。");
       } else {
           setError(err.message || "發生未知錯誤");
       }
@@ -125,11 +116,11 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
       <div className="flex items-center gap-2 mb-3 text-pink-600 dark:text-pink-400">
         <Globe size={20} />
         <h3 className="font-semibold">網絡連結匯入</h3>
-        <span className="px-2 py-0.5 bg-gradient-to-r from-pink-500 to-rose-500 text-white text-[10px] rounded-full font-bold shadow-sm">V3.1 (Robust)</span>
+        <span className="px-2 py-0.5 bg-gradient-to-r from-pink-600 to-purple-600 text-white text-[10px] rounded-full font-bold shadow-sm">V3.2 (Ultimate)</span>
       </div>
       
       <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
-        貼上 YouTube/FB/IG 連結。系統會自動嘗試「純音訊」或「極小影片」模式提取。
+        貼上 YouTube/FB/IG 連結。系統會自動嘗試提取。若自動載入失敗，將提供下載連結。
       </p>
 
       <div className="flex flex-col gap-3">
@@ -176,7 +167,7 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
             </div>
         )}
 
-        {/* Error & Manual Download UI */}
+        {/* Error & Manual Download UI (The Critical Fix) */}
         {error && (
           <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg animate-fade-in">
             <div className="flex items-start gap-2 text-xs text-red-600 dark:text-red-300 mb-3 font-medium">
@@ -194,12 +185,12 @@ const UrlImporter: React.FC<UrlImporterProps> = ({ onFileSelect, disabled }) => 
                         className="flex items-center justify-between gap-2 w-full p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all shadow-md group"
                     >
                         <span className="text-xs font-bold flex items-center gap-2">
-                            <ExternalLink size={14}/> 1. 點擊下載檔案
+                            <ExternalLink size={14}/> 1. 點擊這裡下載檔案
                         </span>
                         <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform"/>
                     </a>
                     <p className="text-[10px] text-slate-400 leading-tight">
-                        2. 下載完成後，請將檔案<strong>拖入上方</strong>「上載影音」框內即可開始。
+                        2. 下載完成後，請將檔案從電腦<strong>拖入上方</strong>「上載影音」框內即可。
                     </p>
                 </div>
             )}
