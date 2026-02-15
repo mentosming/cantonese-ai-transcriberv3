@@ -1,9 +1,54 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-HK">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cantonese AI Transcriber | 專業語音轉文字工具</title>
+    
+    <!-- SEO Primary Meta Tags -->
+    <title>Cantonese AI Transcriber | 免費廣東話語音轉文字、字幕生成工具</title>
+    <meta name="description" content="專業級廣東話 AI 語音轉文字工具 (Speech-to-Text)。支援 MP3/影片轉錄、自動生成 SRT 字幕、區分說話者及 AI 重點摘要。適合會議記錄、訪問逐字稿及影片字幕製作。立即免費試用！" />
+    <meta name="keywords" content="廣東話語音轉文字, 廣東話字幕, AI 逐字稿, Cantonese Speech to Text, 影片轉文字, SRT 生成, 錄音轉文字, 香港 AI 工具, 廣東話 ASR" />
+    <meta name="author" content="Cantonese AI Transcriber" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Open Graph / Facebook / WhatsApp (Social Sharing) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://cantonese-ai-transcriber.vercel.app/" />
+    <meta property="og:title" content="Cantonese AI Transcriber | 專業廣東話語音轉文字" />
+    <meta property="og:description" content="一鍵將廣東話影片/錄音轉為準確文字。支援長檔案分割、網絡影片匯入及 SRT 字幕下載。精準識別中英夾雜內容。" />
+    <meta property="og:image" content="https://ui-avatars.com/api/?name=AI&background=2563eb&color=fff&size=512" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content="Cantonese AI Transcriber | 專業廣東話語音轉文字" />
+    <meta property="twitter:description" content="一鍵將廣東話影片/錄音轉為準確文字。支援長檔案分割及 SRT 下載。" />
+
+    <!-- JSON-LD Structured Data (Tell Google this is a Software Application) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Cantonese AI Transcriber",
+        "url": "https://cantonese-ai-transcriber.vercel.app/",
+        "applicationCategory": "Productivity",
+        "genre": "Speech to Text",
+        "operatingSystem": "Web Browser",
+        "description": "專業級廣東話 AI 語音轉文字工具。支援 MP3/影片轉錄、自動生成 SRT 字幕、區分說話者及 AI 重點摘要。",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "featureList": [
+          "Cantonese Speech Recognition",
+          "Automatic SRT Subtitle Generation",
+          "Speaker Diarization",
+          "AI Summary",
+          "YouTube Audio Extraction"
+        ]
+      }
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -53,7 +98,12 @@
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "lucide-react": "https://esm.sh/lucide-react@^0.564.0",
     "firebase/": "https://esm.sh/firebase@^12.9.0/",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.4"
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.4",
+    "buffer": "https://esm.sh/buffer@^6.0.3",
+    "@vercel/node": "https://esm.sh/@vercel/node@^5.6.3",
+    "stream": "https://esm.sh/stream@^0.0.3",
+    "util": "https://esm.sh/util@^0.12.5",
+    "node-fetch": "https://esm.sh/node-fetch@^3.3.2"
   }
 }
 </script>
