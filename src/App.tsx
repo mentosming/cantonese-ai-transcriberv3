@@ -50,7 +50,7 @@ const App: React.FC = () => {
   const [authError, setAuthError] = useState('');
 
   const [settings, setSettings] = useState<TranscriptionSettings>({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-3-flash-preview',
     language: ['yue'], // Default to Cantonese array
     enableDiarization: true,
     enableTimestamps: true, 
