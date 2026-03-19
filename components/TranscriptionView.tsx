@@ -3,6 +3,20 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Copy, Download, FileText, Check, FileSpreadsheet, Trash2, Table as TableIcon, AlignLeft, CheckSquare, Square, Sparkles, ArrowRight, Upload, Subtitles, Type } from 'lucide-react';
 import Button from './Button';
 
+// Debounce hook for streaming performance
+const useDebouncedValue = <T,>(value: T, delay: number, enabled: boolean): T => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    if (!enabled) {
+      setDebouncedValue(value);
+      return;
+    }
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay, enabled]);
+  return debouncedValue;
+};
+
 interface TranscriptionViewProps {
   text: string;
   status: string;
@@ -65,10 +79,15 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'text'>('table');
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
-  
+
+  // Debounce text during streaming to avoid re-parsing on every chunk
+  const isStreaming = status === 'transcribing';
+  const debouncedText = useDebouncedValue(text, 300, isStreaming);
+
   // Parse text into rows and apply timestamp offsets dynamically
+  // Uses debouncedText during streaming to avoid O(n) re-parsing on every chunk
   const rows: RowData[] = useMemo(() => {
-    const lines = text.split('\n');
+    const lines = debouncedText.split('\n');
     let currentOffsetSeconds = 0;
 
     return lines.map((line, index) => {
@@ -131,7 +150,7 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
         
         return { id: index, type: 'raw', time: '', speaker: '', content: line, rawLine: line };
     });
-  }, [text]);
+  }, [debouncedText]);
 
   // Auto-scroll
   useEffect(() => {
@@ -140,16 +159,16 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
     }
   }, [text, status, viewMode]);
 
-  const getProcessedText = () => rows.map(r => r.rawLine).join('\n');
+  const processedText = useMemo(() => rows.map(r => r.rawLine).join('\n'), [rows]);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(getProcessedText());
+    navigator.clipboard.writeText(processedText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleDownloadTxt = () => {
-    const blob = new Blob([getProcessedText()], { type: 'text/plain' });
+    const blob = new Blob([processedText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -476,7 +495,7 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
         ) : (
             viewMode === 'text' ? (
                 <div className="p-6 font-mono leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap text-sm">
-                    {getProcessedText()}
+                    {processedText}
                     <div ref={bottomRef} />
                 </div>
             ) : (
@@ -490,7 +509,7 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
       
       {/* Footer Status */}
       <div className="p-2 border-t border-slate-100 dark:border-slate-700 text-xs text-center text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-b-xl flex justify-between px-4 shrink-0">
-        <span>字數統計: {getProcessedText().length}</span>
+        <span>字數統計: {processedText.length}</span>
         {viewMode === 'table' && <span className="text-blue-600 dark:text-blue-400 hidden sm:inline">時間戳已自動校正 | 可點擊文字編輯</span>}
       </div>
     </div>

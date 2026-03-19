@@ -52,49 +52,98 @@ const FileSplitter: React.FC<FileSplitterProps> = ({ onSelectSegment, isPro, onR
     media.src = objectUrl;
   };
 
-  const handleSplit = () => {
+  const [progress, setProgress] = useState('');
+
+  // Encode AudioBuffer segment to WAV blob
+  const encodeWav = (audioBuffer: AudioBuffer, startSample: number, endSample: number): Blob => {
+    const numChannels = Math.min(audioBuffer.numberOfChannels, 2);
+    const length = endSample - startSample;
+    const sampleRate = audioBuffer.sampleRate;
+    const bytesPerSample = 2; // 16-bit
+    const dataSize = length * numChannels * bytesPerSample;
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
+
+    const writeString = (offset: number, str: string) => {
+      for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
+    view.setUint16(32, numChannels * bytesPerSample, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, dataSize, true);
+
+    const channels: Float32Array[] = [];
+    for (let ch = 0; ch < numChannels; ch++) {
+      channels.push(audioBuffer.getChannelData(ch));
+    }
+
+    let offset = 44;
+    for (let i = startSample; i < endSample; i++) {
+      for (let ch = 0; ch < numChannels; ch++) {
+        const sample = Math.max(-1, Math.min(1, channels[ch][i]));
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+        offset += 2;
+      }
+    }
+
+    return new Blob([buffer], { type: 'audio/wav' });
+  };
+
+  const handleSplit = async () => {
     if (!file) return;
     setIsProcessing(true);
     setChunks([]);
+    setProgress('正在解碼音訊...');
 
-    let chunkSize = 0;
-    
-    if (mediaDuration > 0) {
-        const avgBytesPerSec = file.size / mediaDuration;
-        chunkSize = Math.floor(avgBytesPerSec * (splitMinutes * 60));
-    } else {
-        chunkSize = splitMinutes * 1024 * 1024 * 1.0; 
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      await audioContext.close();
+
+      const totalDuration = audioBuffer.duration;
+      const sampleRate = audioBuffer.sampleRate;
+      const segmentSeconds = splitMinutes * 60;
+      const totalSegments = Math.ceil(totalDuration / segmentSeconds);
+      const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+      const newChunks: {file: File, startTime: string}[] = [];
+
+      for (let idx = 0; idx < totalSegments; idx++) {
+        setProgress(`分割中... ${idx + 1}/${totalSegments}`);
+        await new Promise(r => setTimeout(r, 0)); // Let UI update
+
+        const startSec = idx * segmentSeconds;
+        const endSec = Math.min((idx + 1) * segmentSeconds, totalDuration);
+        const startSample = Math.floor(startSec * sampleRate);
+        const endSample = Math.min(Math.floor(endSec * sampleRate), audioBuffer.length);
+
+        const wavBlob = encodeWav(audioBuffer, startSample, endSample);
+        const chunkFile = new File([wavBlob], `${baseName}_Part_${idx + 1}.wav`, { type: 'audio/wav' });
+
+        newChunks.push({
+          file: chunkFile,
+          startTime: formatTimeSeconds(startSec)
+        });
+      }
+
+      setChunks(newChunks);
+      setProgress('');
+    } catch (err: any) {
+      setProgress('');
+      alert(`分割失敗：${err.message?.includes('decodeAudioData') ? '無法解碼此檔案格式，請先轉換為 MP3 或 WAV。' : err.message}`);
+    } finally {
+      setIsProcessing(false);
     }
-
-    if (chunkSize < 500 * 1024) chunkSize = 500 * 1024;
-
-    const totalSize = file.size;
-    const newChunks: {file: File, startTime: string}[] = [];
-    let start = 0;
-    let idx = 0;
-
-    const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-    const extension = file.name.split('.').pop() || '';
-
-    while (start < totalSize) {
-      const end = Math.min(start + chunkSize, totalSize);
-      const blob = file.slice(start, end);
-      
-      const chunkFile = new File([blob], `${baseName}_Part_${idx + 1}.${extension}`, { type: file.type });
-      
-      const currentStartTimeSeconds = idx * splitMinutes * 60;
-      
-      newChunks.push({
-        file: chunkFile,
-        startTime: formatTimeSeconds(currentStartTimeSeconds)
-      });
-      
-      start = end;
-      idx++;
-    }
-
-    setChunks(newChunks);
-    setIsProcessing(false);
   };
 
   return (
@@ -152,7 +201,7 @@ const FileSplitter: React.FC<FileSplitterProps> = ({ onSelectSegment, isPro, onR
           />
         </div>
         <Button onClick={handleSplit} disabled={!file || isProcessing} className="w-full text-sm">
-          {isProcessing ? '處理中...' : '開始分割'}
+          {isProcessing ? (progress || '處理中...') : '開始分割'}
         </Button>
       </div>
 

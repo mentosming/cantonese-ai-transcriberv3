@@ -1,5 +1,5 @@
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { Upload, FileAudio, FileVideo, X } from 'lucide-react';
 
 interface FileUploadProps {
@@ -53,7 +53,19 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, selectedFile, onC
     }
   };
 
-  if (selectedFile) {
+  // Stable object URL with proper cleanup to prevent memory leaks
+  const previewUrl = useMemo(() => {
+    if (!selectedFile) return null;
+    return URL.createObjectURL(selectedFile);
+  }, [selectedFile]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  if (selectedFile && previewUrl) {
     const isVideo = selectedFile.type.startsWith('video');
     const sizeInMB = (selectedFile.size / (1024 * 1024)).toFixed(2);
 
@@ -75,21 +87,21 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, selectedFile, onC
             </button>
           )}
         </div>
-        
+
         {/* Preview Player */}
         <div className="w-full bg-black rounded-lg overflow-hidden">
           {isVideo ? (
-            <video 
-              controls 
-              className="w-full max-h-[300px]" 
-              src={URL.createObjectURL(selectedFile)} 
+            <video
+              controls
+              className="w-full max-h-[300px]"
+              src={previewUrl}
               onLoadedMetadata={(e) => onDurationDetected?.(e.currentTarget.duration)}
             />
           ) : (
-            <audio 
-              controls 
-              className="w-full" 
-              src={URL.createObjectURL(selectedFile)} 
+            <audio
+              controls
+              className="w-full"
+              src={previewUrl}
               onLoadedMetadata={(e) => onDurationDetected?.(e.currentTarget.duration)}
             />
           )}

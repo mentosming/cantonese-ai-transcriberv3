@@ -43,8 +43,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
-        
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
+
         {/* Header */}
         <div className="bg-slate-900 text-white p-6 flex justify-between items-center">
             <div className="flex items-center gap-3">
@@ -64,20 +64,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
         {/* Content */}
         <div className="p-6 space-y-6">
             <div>
-                <h3 className="font-semibold text-slate-800 mb-2">生成新通行碼</h3>
-                <p className="text-sm text-slate-500 mb-4">
+                <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-2">生成新通行碼</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
                     請選擇有效期，系統將於資料庫建立授權。
                 </p>
 
                 {/* Duration Selector */}
                 <div className="mb-4">
-                    <label className="block text-xs font-medium text-slate-700 mb-1 flex items-center gap-1">
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
                         <CalendarClock size={14} /> 有效期限
                     </label>
-                    <select 
-                        value={duration} 
+                    <select
+                        value={duration}
                         onChange={(e) => setDuration(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 outline-none"
                     >
                         <option value="7">7 天 (試用)</option>
                         <option value="30">30 天 (1 個月)</option>
@@ -89,10 +89,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                 </div>
 
                 <div className="flex flex-col gap-3">
-                    <div className={`h-16 flex flex-col items-center justify-center bg-slate-100 rounded-xl border-2 border-dashed ${generatedKey ? 'border-blue-500 bg-blue-50' : 'border-slate-300'}`}>
+                    <div className={`h-16 flex flex-col items-center justify-center rounded-xl border-2 border-dashed ${generatedKey ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700'}`}>
                         {generatedKey ? (
                             <>
-                                <span className="text-xl font-mono font-bold text-blue-700 tracking-wider select-all">
+                                <span className="text-xl font-mono font-bold text-blue-700 dark:text-blue-300 tracking-wider select-all">
                                     {generatedKey}
                                 </span>
                                 <span className="text-[10px] text-blue-400 mt-1">
@@ -114,17 +114,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
                             </Button>
                         )}
                     </div>
-                    
+
                     {error && (
-                        <div className="mt-3 p-3 bg-red-50 border border-red-100 rounded-lg flex items-start text-left">
-                            <AlertCircle size={16} className="text-red-600 mr-2 shrink-0 mt-0.5" />
-                            <p className="text-xs text-red-600 break-all">{error}</p>
+                        <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg flex items-start text-left">
+                            <AlertCircle size={16} className="text-red-600 dark:text-red-400 mr-2 shrink-0 mt-0.5" />
+                            <p className="text-xs text-red-600 dark:text-red-400 break-all">{error}</p>
                         </div>
                     )}
                 </div>
             </div>
-            
-            <div className="border-t border-slate-100 pt-4">
+
+            <div className="border-t border-slate-100 dark:border-slate-700 pt-4">
                 <p className="text-xs text-slate-400 text-center">
                     序號狀態會即時同步至雲端資料庫。
                 </p>

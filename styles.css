@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+/* Custom theme configuration */
+@theme {
+  --font-sans: 'Inter', 'Noto Sans HK', sans-serif;
+}
+
+/* Dark mode via class */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Custom animations */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@utility animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+/* Custom Scrollbar */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 20px;
+}
+
+/* Dark mode scrollbar */
+.dark .scrollbar-thin::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #475569;
+}

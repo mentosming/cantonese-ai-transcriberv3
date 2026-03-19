@@ -1,299 +1,53 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Mic, AlertCircle, PlayCircle, StopCircle, CheckCircle2, Loader2, UploadCloud, FileText, Sparkles, BookOpen, ChevronUp, ChevronDown, Coffee, Lock, UserCog, Unlock, Crown, X, Chrome, Moon, Sun, Type, Heart, Key } from 'lucide-react';
 import FileUpload from './components/FileUpload';
 import SettingsPanel from './components/SettingsPanel';
 import TranscriptionView from './components/TranscriptionView';
-import SummaryPanel from './components/SummaryPanel';
-import FileSplitter from './components/FileSplitter';
-import AudioExtractor from './components/AudioExtractor';
-import UrlImporter from './components/UrlImporter'; 
 import Button from './components/Button';
-import AdminPanel from './components/AdminPanel';
-import { TranscriptionSettings, ProcessingStatus, TranscriptionError } from './types';
-import { transcribeMedia } from './services/geminiService';
-import { loginAdminWithGoogle, validateLicenseKey, saveLicense, getStoredLicense, clearLicense, logoutAdmin } from './services/authService';
-import { MAX_FILE_SIZE_INLINE } from './constants';
+import ErrorBoundary from './components/ErrorBoundary';
+import { useTheme } from './hooks/useTheme';
+import { useAuth } from './hooks/useAuth';
+import { useTranscription } from './hooks/useTranscription';
+
+// Lazy-loaded components (not needed on initial render)
+const SummaryPanel = lazy(() => import('./components/SummaryPanel'));
+const FileSplitter = lazy(() => import('./components/FileSplitter'));
+const AudioExtractor = lazy(() => import('./components/AudioExtractor'));
+const UrlImporter = lazy(() => import('./components/UrlImporter'));
+const AdminPanel = lazy(() => import('./components/AdminPanel'));
 
 const App: React.FC = () => {
-  // Check API Key existence immediately
-  const hasApiKey = !!process.env.API_KEY;
+  // Custom hooks
+  const { darkMode, toggleTheme, globalFontSize, setGlobalFontSize } = useTheme();
+  const auth = useAuth();
+  const tx = useTranscription(auth.isPro);
 
-  // State
-  const [file, setFile] = useState<File | null>(null);
-  const [fileDuration, setFileDuration] = useState<number>(0);
-  const [transcription, setTranscription] = useState('');
-  const [status, setStatus] = useState<ProcessingStatus>('idle');
-  const [error, setError] = useState<TranscriptionError | null>(null);
+  // Local UI state
   const [activeTab, setActiveTab] = useState<'transcription' | 'summary'>('transcription');
   const [showGuide, setShowGuide] = useState(true);
-  
-  // Theme & Display State
-  // Initialize from localStorage or system preference
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem('cai_dark_mode');
-        if (saved !== null) {
-            return saved === 'true';
-        }
-        return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return false;
-  });
-  
-  const [globalFontSize, setGlobalFontSize] = useState(0); // 0: Normal, 1: Large, 2: Extra Large
 
-  // Auth State
-  const [isPro, setIsPro] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [licenseInput, setLicenseInput] = useState('');
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState('');
-
-  const [settings, setSettings] = useState<TranscriptionSettings>({
-    model: 'gemini-3-flash-preview',
-    language: ['yue'], // Default to Cantonese array
-    enableDiarization: true,
-    enableTimestamps: true, 
-    speakers: [],
-    startTime: "00:00",
-    customPrompt: ""
-  });
-
-  // Refs
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  // --- Initialization ---
+  // Auto-hide guide
   useEffect(() => {
-    const checkSavedLicense = async () => {
-        const savedKey = getStoredLicense();
-        if (savedKey) {
-            const isValid = await validateLicenseKey(savedKey);
-            if (isValid) {
-                setIsPro(true);
-            } else {
-                clearLicense(); // Expired or invalid
-            }
-        }
-    };
-    checkSavedLicense();
-  }, []);
-
-  // --- Auto-Hide Guide Effect ---
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowGuide(false);
-    }, 5000); // Increased to 5s to allow reading the new richer content slightly
+    const timer = setTimeout(() => setShowGuide(false), 5000);
     return () => clearTimeout(timer);
   }, []);
 
-  // --- Theme Effect ---
-  // Apply dark class to <html> tag for global effect
-  useEffect(() => {
-    if (darkMode) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('cai_dark_mode', 'true');
-    } else {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('cai_dark_mode', 'false');
-    }
-  }, [darkMode]);
-
-  // --- Global Font Size Effect ---
-  useEffect(() => {
-    // Tailwind uses rem. 1rem = root font size.
-    // Default is usually 16px.
-    const sizes = ['16px', '18px', '20px'];
-    document.documentElement.style.fontSize = sizes[globalFontSize];
-  }, [globalFontSize]);
-
-  // --- Theme Toggle ---
-  const toggleTheme = () => {
-      setDarkMode(!darkMode);
-  };
-
-  // --- Handlers ---
-
+  // Wrap handleFileSelect to also switch tab
   const handleFileSelect = (selectedFile: File, estimatedStartTime?: string) => {
-    setFile(selectedFile);
-    setFileDuration(0);
-    setStatus('idle');
-    setError(null);
-    setActiveTab('transcription'); 
-    
-    if (estimatedStartTime) {
-      setSettings(prev => ({
-        ...prev,
-        startTime: estimatedStartTime
-      }));
-    } else {
-        setSettings(prev => ({
-            ...prev,
-            startTime: "00:00"
-        }));
-    }
-  };
-
-  const handleClearFile = () => {
-    if (status === 'transcribing' || status === 'uploading') return;
-    setFile(null);
-    setStatus('idle');
-    setSettings(prev => ({ ...prev, startTime: "00:00" }));
-  };
-
-  const handleClearTranscription = () => {
-    if (window.confirm("確定要清空所有轉錄內容嗎？")) {
-      setTranscription('');
-    }
-  };
-  
-  const handleUpdateTranscription = (newText: string) => {
-    setTranscription(newText);
-  };
-
-  const getMediaDuration = (file: File): Promise<number> => {
-    return new Promise((resolve) => {
-        const objectUrl = URL.createObjectURL(file);
-        const media = document.createElement(file.type.startsWith('video') ? 'video' : 'audio');
-        media.preload = 'metadata';
-        media.onloadedmetadata = () => {
-            resolve(media.duration);
-            URL.revokeObjectURL(objectUrl);
-        };
-        media.onerror = () => {
-            resolve(0); 
-            URL.revokeObjectURL(objectUrl);
-        };
-        media.src = objectUrl;
-    });
-  };
-
-  const handleStart = async () => {
-    if (!hasApiKey) {
-        alert("錯誤：未檢測到 API Key。請先在 Vercel 設定環境變數。");
-        return;
-    }
-    if (!file) return;
-
-    // --- NEW 10-MINUTE SYSTEM LIMIT (FOR ALL USERS) ---
-    if (fileDuration > 600) {
-        const msg = `檔案過長警告：系統偵測到檔案長度超過 10 分鐘 (${(fileDuration/60).toFixed(1)} 分鐘)。\n\n為確保轉錄品質及防止 AI 逾時錯誤，請先使用「輔助工具」中的「長檔案分割」功能，將檔案分割為數個 10 分鐘內的片段再進行轉錄。`;
-        alert(msg);
-        setError({ type: 'limit', message: msg });
-        
-        // Auto-scroll to splitter
-        setTimeout(() => {
-            const splitter = document.getElementById('file-splitter-section');
-            if (splitter) {
-                splitter.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                // Add a brief highlight effect if possible
-                splitter.classList.add('ring-2', 'ring-amber-500', 'ring-offset-2');
-                setTimeout(() => splitter.classList.remove('ring-2', 'ring-amber-500', 'ring-offset-2'), 3000);
-            }
-        }, 100);
-        return;
-    }
-
-    // --- PRO LIMIT CHECK (7 MIN FOR FREE) ---
-    if (!isPro) {
-        setStatus('idle'); 
-        // 7 minutes = 420 seconds
-        if (fileDuration > 420) {
-            setError({
-                type: 'limit',
-                message: `限制提示：免費版僅支援最長 7 分鐘的影音轉錄。檢測到長度約為 ${(fileDuration/60).toFixed(1)} 分鐘。請使用分割工具(需 Pro)或剪輯後再試。`
-            });
-            return;
-        }
-    }
-    
-    setStatus(file.size > MAX_FILE_SIZE_INLINE ? 'uploading' : 'transcribing');
-    setError(null);
+    tx.handleFileSelect(selectedFile, estimatedStartTime);
     setActiveTab('transcription');
-    setShowGuide(false); 
-    
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-
-    const hasOffset = settings.startTime && settings.startTime !== "00:00" && settings.startTime !== "0:00";
-    const isAppend = transcription.length > 0;
-
-    if (isAppend || hasOffset) {
-      setTranscription(prev => prev + `\n\n--- [接續檔案: ${file.name} | Start: ${settings.startTime}] ---\n\n`);
-    }
-
-    try {
-      await transcribeMedia(
-        file, 
-        settings, 
-        (chunkText) => {
-            setStatus('transcribing');
-            setTranscription(prev => prev + chunkText);
-        },
-        abortController.signal
-      );
-      setStatus('completed');
-    } catch (err: any) {
-      if (err.message === 'Transcription stopped by user.') {
-        setStatus('stopped');
-      } else {
-        setStatus('error');
-        setError(err);
-      }
-    } finally {
-      abortControllerRef.current = null;
-    }
   };
 
-  const handleStop = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+  // Wrap handleStart to also update UI
+  const handleStart = async () => {
+    setActiveTab('transcription');
+    setShowGuide(false);
+    await tx.handleStart();
   };
 
-  // --- Auth Handlers ---
-  const handleAdminLogin = async () => {
-    setAuthLoading(true);
-    setAuthError('');
-    try {
-        await loginAdminWithGoogle();
-        setShowLoginModal(false);
-        setShowAdminPanel(true);
-        setIsPro(true); 
-    } catch (err: any) {
-        setAuthError(err.message);
-    } finally {
-        setAuthLoading(false);
-    }
-  };
-
-  const handleLicenseUnlock = async () => {
-    setAuthLoading(true);
-    setAuthError('');
-    try {
-        const isValid = await validateLicenseKey(licenseInput);
-        if (isValid) {
-            saveLicense(licenseInput);
-            setIsPro(true);
-            setShowLoginModal(false);
-            setLicenseInput('');
-            alert("成功解鎖完全版功能！");
-        } else {
-            setAuthError("無效的通行碼，請確認後再試。");
-        }
-    } catch (err) {
-        setAuthError("驗證過程發生錯誤，請檢查網絡連接。");
-    } finally {
-        setAuthLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    await logoutAdmin();
-    setShowAdminPanel(false);
-    const savedKey = getStoredLicense();
-    if (!savedKey) setIsPro(false);
-  };
+  // Destructure for convenience
+  const { isPro, showLoginModal, setShowLoginModal, showAdminPanel, licenseInput, setLicenseInput, authLoading, authError, handleAdminLogin, handleLicenseUnlock, handleLogout } = auth;
+  const { hasApiKey, file, fileDuration, setFileDuration, transcription, status, error, settings, setSettings, handleClearFile, handleClearTranscription, handleUpdateTranscription, handleStop } = tx;
 
   const StatusBadge = () => {
     switch (status) {
@@ -324,7 +78,7 @@ const App: React.FC = () => {
       <div className="h-screen bg-slate-50 dark:bg-slate-900 flex flex-col overflow-hidden transition-colors duration-200">
       
       {/* Admin Panel Overlay */}
-      {showAdminPanel && <AdminPanel onLogout={handleLogout} />}
+      {showAdminPanel && <Suspense fallback={null}><AdminPanel onLogout={handleLogout} /></Suspense>}
 
       {/* Login / License Modal */}
       {showLoginModal && (
@@ -650,18 +404,22 @@ const App: React.FC = () => {
 
                 <div className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
                     <div className={`absolute inset-0 flex flex-col transition-opacity duration-200 ${activeTab === 'transcription' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
-                        <TranscriptionView 
-                            text={transcription} 
-                            status={status} 
+                        <ErrorBoundary fallbackMessage="轉錄結果載入失敗">
+                        <TranscriptionView
+                            text={transcription}
+                            status={status}
                             onClear={handleClearTranscription}
                             onUpdate={handleUpdateTranscription}
                             onSwitchToSummary={() => setActiveTab('summary')}
                             className="h-full"
                         />
+                        </ErrorBoundary>
                     </div>
 
                      <div className={`absolute inset-0 flex flex-col transition-opacity duration-200 ${activeTab === 'summary' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
-                        <SummaryPanel transcriptionText={transcription} />
+                        <Suspense fallback={<div className="flex items-center justify-center h-full text-slate-400"><Loader2 className="animate-spin" size={24} /></div>}>
+                          <SummaryPanel transcriptionText={transcription} />
+                        </Suspense>
                     </div>
                 </div>
             </div>
@@ -670,22 +428,26 @@ const App: React.FC = () => {
             <div className="lg:col-span-3 flex flex-col gap-6 lg:h-full lg:overflow-y-auto lg:pl-2 lg:scrollbar-thin pb-4">
                  <div>
                     <h2 className="text-sm uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold mb-3">4. 輔助工具</h2>
-                    <div className="flex flex-col gap-6">
-                        <AudioExtractor />
-                        <div id="file-splitter-section" className="transition-all duration-500 rounded-xl">
-                            <FileSplitter 
-                                onSelectSegment={handleFileSelect} 
-                                isPro={isPro}
-                                onRequestUnlock={() => setShowLoginModal(true)}
-                            />
-                        </div>
-                        <UrlImporter 
-                            onFileSelect={handleFileSelect} 
-                            disabled={status === 'uploading' || status === 'transcribing'} 
-                            isPro={isPro}
-                            onRequestUnlock={() => setShowLoginModal(true)}
-                        />
-                    </div>
+                    <ErrorBoundary fallbackMessage="輔助工具載入失敗">
+                    <Suspense fallback={<div className="flex items-center justify-center py-8 text-slate-400"><Loader2 className="animate-spin" size={24} /></div>}>
+                      <div className="flex flex-col gap-6">
+                          <AudioExtractor />
+                          <div id="file-splitter-section" className="transition-all duration-500 rounded-xl">
+                              <FileSplitter
+                                  onSelectSegment={handleFileSelect}
+                                  isPro={isPro}
+                                  onRequestUnlock={() => setShowLoginModal(true)}
+                              />
+                          </div>
+                          <UrlImporter
+                              onFileSelect={handleFileSelect}
+                              disabled={status === 'uploading' || status === 'transcribing'}
+                              isPro={isPro}
+                              onRequestUnlock={() => setShowLoginModal(true)}
+                          />
+                      </div>
+                    </Suspense>
+                    </ErrorBoundary>
                  </div>
             </div>
 
