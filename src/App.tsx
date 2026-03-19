@@ -404,18 +404,18 @@ const App: React.FC = () => {
       <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shrink-0 z-20 shadow-sm relative transition-colors">
         <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-lg flex items-center justify-center text-white shadow-md">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-lg flex items-center justify-center text-white shadow-md shrink-0">
               <Mic size={20} />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2 flex-wrap">
-                Cantonese AI Transcriber
-                <span className="hidden sm:inline text-slate-300 dark:text-slate-600 mx-1">|</span>
-                <span className="text-base sm:text-lg font-normal text-slate-700 dark:text-slate-200">專業語音轉文字工具</span>
-                {isPro && <span className="px-2 py-0.5 bg-gradient-to-r from-amber-200 to-yellow-400 text-amber-900 text-[10px] font-bold rounded-full shadow-sm">PRO</span>}
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                <span className="truncate">Cantonese AI Transcriber</span>
+                <span className="hidden md:inline text-slate-300 dark:text-slate-600 mx-1">|</span>
+                <span className="hidden md:inline text-base sm:text-lg font-normal text-slate-700 dark:text-slate-200">專業語音轉文字工具</span>
+                {isPro && <span className="px-2 py-0.5 bg-gradient-to-r from-amber-200 to-yellow-400 text-amber-900 text-[10px] font-bold rounded-full shadow-sm shrink-0">PRO</span>}
               </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide">
-                支援廣東話 (Cantonese)、英文、國語識別 • 準確率高 • 智能長檔案處理
+              <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide truncate hidden xs:block">
+                支援廣東話、英文、國語識別 • 準確率高
               </p>
             </div>
           </div>
@@ -456,10 +456,10 @@ const App: React.FC = () => {
                  </button>
              )}
              {isPro && (
-                 <div className="flex items-center gap-2">
-                     <span className="text-xs text-amber-600 dark:text-amber-400 font-bold flex items-center"><Crown size={14} className="mr-1"/> 完全版已啟用</span>
-                     <button onClick={() => setShowLoginModal(true)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-400">
-                         <UserCog size={16} />
+                 <div className="flex items-center gap-2 shrink-0">
+                     <span className="text-xs text-amber-600 dark:text-amber-400 font-bold hidden sm:flex items-center"><Crown size={14} className="mr-1"/> 完全版已啟用</span>
+                     <button onClick={() => setShowLoginModal(true)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-400 sm:text-slate-400">
+                         <UserCog size={18} />
                      </button>
                  </div>
              )}
@@ -550,12 +550,12 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Layout */}
-      <main className="flex-1 overflow-hidden">
-        <div className="h-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
+      <main className="flex-1 overflow-y-auto lg:overflow-hidden bg-slate-50 dark:bg-slate-900">
+        <div className="min-h-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full lg:h-full">
             
             {/* LEFT COLUMN: Controls & Input (3 cols) */}
-            <div className="lg:col-span-3 flex flex-col gap-6 h-full overflow-y-auto pr-2 scrollbar-thin pb-4">
+            <div className="lg:col-span-3 flex flex-col gap-6 lg:h-full lg:overflow-y-auto lg:pr-2 lg:scrollbar-thin pb-4">
                 <section>
                     <h2 className="text-sm uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold mb-3">1. 上載影音</h2>
                     <FileUpload 
@@ -598,7 +598,7 @@ const App: React.FC = () => {
             </div>
 
             {/* MIDDLE COLUMN: Output (6 cols) */}
-            <div className="lg:col-span-6 flex flex-col h-full overflow-hidden">
+            <div className="lg:col-span-6 flex flex-col h-[500px] lg:h-full overflow-hidden">
                 {/* Tabs Header */}
                 <div className="flex items-center justify-between mb-3 shrink-0">
                    <div className="flex bg-slate-200 dark:bg-slate-800 p-1 rounded-lg">

@@ -446,7 +446,7 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
 
           <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleImportCSV} />
           <Button variant="ghost" onClick={() => fileInputRef.current?.click()} className="text-xs h-8 px-2 text-slate-600 dark:text-slate-300">
-             <Upload size={14} /> 導入
+             <Upload size={14} /> <span className="hidden xs:inline ml-1">導入</span>
           </Button>
 
           <Button variant="ghost" onClick={handleCopy} className="text-xs h-8 px-2 text-slate-600 dark:text-slate-300">
@@ -454,13 +454,13 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
           </Button>
           
           <Button variant="ghost" onClick={handleDownloadTxt} className="text-xs h-8 px-2 text-slate-600 dark:text-slate-300" title="下載 .txt">
-            <Download size={14} /> TXT
+            <Download size={14} /> <span className="hidden xs:inline ml-1">TXT</span>
           </Button>
            <Button variant="ghost" onClick={handleDownloadCSV} className="text-xs h-8 px-2 text-slate-600 dark:text-slate-300" title="下載 .csv">
-            <FileSpreadsheet size={14} /> CSV
+            <FileSpreadsheet size={14} /> <span className="hidden xs:inline ml-1">CSV</span>
           </Button>
           <Button variant="ghost" onClick={handleDownloadSRT} className="text-xs h-8 px-2 text-slate-600 dark:text-slate-300" title="下載 .srt 字幕">
-            <Subtitles size={14} /> SRT
+            <Subtitles size={14} /> <span className="hidden xs:inline ml-1">SRT</span>
           </Button>
         </div>
       </div>
