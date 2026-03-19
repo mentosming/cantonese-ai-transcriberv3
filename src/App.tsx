@@ -177,10 +177,20 @@ const App: React.FC = () => {
 
     // --- NEW 10-MINUTE SYSTEM LIMIT (FOR ALL USERS) ---
     if (fileDuration > 600) {
-        setError({
-            type: 'limit',
-            message: `檔案過長警告：系統偵測到檔案長度超過 10 分鐘 (${(fileDuration/60).toFixed(1)} 分鐘)。為確保轉錄品質及防止 AI 逾時錯誤，請先使用右側「輔助工具」中的「長檔案分割」功能，將檔案分割為數個 10 分鐘內的片段再進行轉錄。`
-        });
+        const msg = `檔案過長警告：系統偵測到檔案長度超過 10 分鐘 (${(fileDuration/60).toFixed(1)} 分鐘)。\n\n為確保轉錄品質及防止 AI 逾時錯誤，請先使用「輔助工具」中的「長檔案分割」功能，將檔案分割為數個 10 分鐘內的片段再進行轉錄。`;
+        alert(msg);
+        setError({ type: 'limit', message: msg });
+        
+        // Auto-scroll to splitter
+        setTimeout(() => {
+            const splitter = document.getElementById('file-splitter-section');
+            if (splitter) {
+                splitter.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Add a brief highlight effect
+                splitter.classList.add('ring-2', 'ring-amber-500', 'ring-offset-4');
+                setTimeout(() => splitter.classList.remove('ring-2', 'ring-amber-500', 'ring-offset-4'), 3000);
+            }
+        }, 100);
         return;
     }
 
@@ -663,11 +673,13 @@ const App: React.FC = () => {
                             isPro={isPro}
                             onRequestUnlock={() => setShowLoginModal(true)}
                         />
-                        <FileSplitter 
-                            onSelectSegment={handleFileSelect} 
-                            isPro={isPro}
-                            onRequestUnlock={() => setShowLoginModal(true)}
-                        />
+                        <div id="file-splitter-section" className="transition-all duration-500 rounded-xl">
+                            <FileSplitter 
+                                onSelectSegment={handleFileSelect} 
+                                isPro={isPro}
+                                onRequestUnlock={() => setShowLoginModal(true)}
+                            />
+                        </div>
                         <AudioExtractor />
                     </div>
                  </div>
