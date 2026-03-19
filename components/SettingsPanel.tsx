@@ -82,7 +82,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
                <span>音訊語言 (可多選, 最多3項)</span>
                <span className="text-xs text-slate-400">{settings.language.length}/3</span>
            </label>
-           <div className="grid grid-cols-2 gap-2 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin">
+           <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin">
               {LANGUAGES.map(lang => {
                   const isSelected = settings.language.includes(lang.id);
                   return (
