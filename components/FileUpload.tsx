@@ -6,10 +6,11 @@ interface FileUploadProps {
   onFileSelect: (file: File) => void;
   selectedFile: File | null;
   onClear: () => void;
+  onDurationDetected?: (duration: number) => void;
   disabled?: boolean;
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, selectedFile, onClear, disabled }) => {
+const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, selectedFile, onClear, onDurationDetected, disabled }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -82,12 +83,14 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, selectedFile, onC
               controls 
               className="w-full max-h-[300px]" 
               src={URL.createObjectURL(selectedFile)} 
+              onLoadedMetadata={(e) => onDurationDetected?.(e.currentTarget.duration)}
             />
           ) : (
             <audio 
               controls 
               className="w-full" 
               src={URL.createObjectURL(selectedFile)} 
+              onLoadedMetadata={(e) => onDurationDetected?.(e.currentTarget.duration)}
             />
           )}
         </div>

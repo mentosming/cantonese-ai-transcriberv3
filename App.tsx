@@ -20,6 +20,7 @@ const App: React.FC = () => {
 
   // State
   const [file, setFile] = useState<File | null>(null);
+  const [fileDuration, setFileDuration] = useState<number>(0);
   const [transcription, setTranscription] = useState('');
   const [status, setStatus] = useState<ProcessingStatus>('idle');
   const [error, setError] = useState<TranscriptionError | null>(null);
@@ -115,6 +116,7 @@ const App: React.FC = () => {
 
   const handleFileSelect = (selectedFile: File, estimatedStartTime?: string) => {
     setFile(selectedFile);
+    setFileDuration(0);
     setStatus('idle');
     setError(null);
     setActiveTab('transcription'); 
@@ -173,15 +175,23 @@ const App: React.FC = () => {
     }
     if (!file) return;
 
-    // --- PRO LIMIT CHECK ---
+    // --- NEW 10-MINUTE SYSTEM LIMIT (FOR ALL USERS) ---
+    if (fileDuration > 600) {
+        setError({
+            type: 'limit',
+            message: `檔案過長警告：系統偵測到檔案長度超過 10 分鐘 (${(fileDuration/60).toFixed(1)} 分鐘)。為確保轉錄品質及防止 AI 逾時錯誤，請先使用右側「輔助工具」中的「長檔案分割」功能，將檔案分割為數個 10 分鐘內的片段再進行轉錄。`
+        });
+        return;
+    }
+
+    // --- PRO LIMIT CHECK (7 MIN FOR FREE) ---
     if (!isPro) {
         setStatus('idle'); 
-        const duration = await getMediaDuration(file);
         // 7 minutes = 420 seconds
-        if (duration > 420) {
+        if (fileDuration > 420) {
             setError({
                 type: 'limit',
-                message: `限制提示：免費版僅支援最長 7 分鐘的影音轉錄。檢測到長度約為 ${(duration/60).toFixed(1)} 分鐘。請使用分割工具(需 Pro)或剪輯後再試。`
+                message: `限制提示：免費版僅支援最長 7 分鐘的影音轉錄。檢測到長度約為 ${(fileDuration/60).toFixed(1)} 分鐘。請使用分割工具(需 Pro)或剪輯後再試。`
             });
             return;
         }
@@ -555,8 +565,8 @@ const App: React.FC = () => {
 
       {/* Main Layout */}
       <main className="flex-1 overflow-y-auto lg:overflow-hidden bg-slate-50 dark:bg-slate-900">
-        <div className="min-h-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full lg:h-full">
+        <div className="min-h-full lg:h-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
             
             {/* LEFT COLUMN: Controls & Input (3 cols) */}
             <div className="lg:col-span-3 flex flex-col gap-6 lg:h-full lg:overflow-y-auto lg:pr-2 lg:scrollbar-thin pb-4">
@@ -566,6 +576,7 @@ const App: React.FC = () => {
                         onFileSelect={handleFileSelect}
                         selectedFile={file}
                         onClear={handleClearFile}
+                        onDurationDetected={setFileDuration}
                         disabled={status === 'uploading' || status === 'transcribing'}
                     />
                 </section>
@@ -646,7 +657,7 @@ const App: React.FC = () => {
             </div>
 
             {/* RIGHT COLUMN: Utilities (3 cols) */}
-            <div className="lg:col-span-3 flex flex-col gap-6 h-full overflow-y-auto pl-2 scrollbar-thin pb-4">
+            <div className="lg:col-span-3 flex flex-col gap-6 lg:h-full lg:overflow-y-auto lg:pl-2 lg:scrollbar-thin pb-4">
                  <div>
                     <h2 className="text-sm uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold mb-3">4. 輔助工具</h2>
                     <div className="flex flex-col gap-6">
