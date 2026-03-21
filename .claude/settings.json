@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -X POST http://localhost:3001/api/info -H \"Content-Type: application/json\" -H \"Origin: http://localhost:5175\" -d '{\"\"url\"\":\"\"https://www.youtube.com/watch?v=AT4b9kLtQCQ\"\"}')",
+      "Bash(yt-dlp --version)",
+      "Bash(yt-dlp --update)",
+      "Bash(yt-dlp --cookies-from-browser firefox --dump-json --no-download --no-playlist --no-warnings \"https://www.youtube.com/watch?v=AT4b9kLtQCQ\")",
+      "Bash(yt-dlp --cookies-from-browser brave --dump-json --no-download --no-playlist --no-warnings \"https://www.youtube.com/watch?v=AT4b9kLtQCQ\")",
+      "Bash(yt-dlp --extractor-args \"youtube:player_client=web_creator\" --dump-json --no-download --no-playlist --no-warnings \"https://www.youtube.com/watch?v=AT4b9kLtQCQ\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\(''''title'''',''''?''''\\), d.get\\(''''duration'''',''''?''''\\)\\)\")",
+      "Bash(yt-dlp --extractor-args \"youtube:player_client=tv\" --dump-json --no-download --no-playlist --no-warnings \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\")",
+      "Bash(yt-dlp --extractor-args \"youtube:player_client=mediaconnect\" --dump-json --no-download --no-playlist --no-warnings \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\")",
+      "Bash(curl -s -X POST http://localhost:3001/api/info -H \"Content-Type: application/json\" -d '{\"\"url\"\":\"\"https://www.youtube.com/watch?v=AT4b9kLtQCQ\"\"}')",
+      "Bash(yt-dlp --extractor-args \"youtube:player_client=mediaconnect\" --dump-json --no-download --no-playlist --no-warnings \"https://www.youtube.com/watch?v=AT4b9kLtQCQ\")",
+      "Bash(yt-dlp --extractor-args \"youtube:player_client=mediaconnect\" --dump-json --no-download --no-playlist --no-warnings \"https://www.youtube.com/watch?v=jNQXAC9IVRw\")",
+      "Bash(yt-dlp --cookies-from-browser chrome:Default --dump-json --no-download --no-playlist --no-warnings \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\")",
+      "Bash(ls /c/Users/admin/Documents/GitHub/cantonese-transcriber-api/www.youtube.com_cookies*)",
+      "Bash(yt-dlp --cookies /c/Users/admin/Documents/GitHub/cantonese-transcriber-api/www.youtube.com_cookies.txt --dump-json --no-download --no-playlist --no-warnings \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\")",
+      "Bash(yt-dlp --cookies /c/Users/admin/Documents/GitHub/cantonese-transcriber-api/www.youtube.com_cookies.txt --dump-json --no-download --no-playlist --no-warnings --extractor-args \"youtube:player_client=mediaconnect\" \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\")",
+      "Bash(yt-dlp --cookies /c/Users/admin/Documents/GitHub/cantonese-transcriber-api/www.youtube.com_cookies.txt --dump-json --no-download --no-playlist --no-warnings --extractor-args \"youtube:player_client=web\" \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\")",
+      "Bash(yt-dlp --cookies /c/Users/admin/Documents/GitHub/cantonese-transcriber-api/www.youtube.com_cookies.txt --print title --no-download --no-playlist --no-warnings \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\")",
+      "Bash(yt-dlp --cookies /c/Users/admin/Documents/GitHub/cantonese-transcriber-api/www.youtube.com_cookies.txt --list-formats --no-playlist --no-warnings \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\")",
+      "Bash(yt-dlp --cookies /c/Users/admin/Documents/GitHub/cantonese-transcriber-api/www.youtube.com_cookies.txt -f \"bestaudio/best\" --list-formats --no-playlist --no-warnings --extractor-args \"youtube:player_client=web_creator,mediaconnect\" \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\")",
+      "Bash(python3 -c \":*)",
+      "Bash(yt-dlp --cookies /c/Users/admin/Documents/GitHub/cantonese-transcriber-api/cookies.txt --dump-json --no-download --no-playlist --no-warnings \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\")",
+      "Bash(yt-dlp --cookies /c/Users/admin/Documents/GitHub/cantonese-transcriber-api/cookies.txt --list-formats --no-playlist --no-warnings \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\")",
+      "Bash(yt-dlp --cookies /c/Users/admin/Documents/GitHub/cantonese-transcriber-api/cookies.txt --extractor-args \"youtube:player_client=web\" --list-formats --no-playlist --no-warnings \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\")",
+      "Bash(yt-dlp --cookies /c/Users/admin/Documents/GitHub/cantonese-transcriber-api/cookies.txt --extractor-args \"youtube:player_client=mweb\" --list-formats --no-playlist --no-warnings \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\")",
+      "Bash(yt-dlp --cookies /c/Users/admin/Documents/GitHub/cantonese-transcriber-api/cookies.txt --extractor-args \"youtube:player_client=ios\" --list-formats --no-playlist --no-warnings \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\")",
+      "Bash(yt-dlp -v --cookies /c/Users/admin/Documents/GitHub/cantonese-transcriber-api/cookies.txt --extractor-args \"youtube:player_client=web\" --no-download --no-playlist \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\")",
+      "Bash(pip install:*)",
+      "Bash(pip list:*)",
+      "Bash(yt-dlp --cookies /c/Users/admin/Documents/GitHub/cantonese-transcriber-api/cookies.txt --extractor-args \"youtube:player_client=web\" --list-formats --no-playlist \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\")",
+      "Bash(npm install:*)",
+      "Bash(phantomjs --version)",
+      "Bash(pip show:*)",
+      "Bash(pip uninstall:*)",
+      "Bash(yt-dlp -v)"
+    ]
+  }
+}

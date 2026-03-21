@@ -1,21 +1,6 @@
-
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { Copy, Download, FileText, Check, FileSpreadsheet, Trash2, Table as TableIcon, AlignLeft, CheckSquare, Square, Sparkles, ArrowRight, Upload, Subtitles, Type } from 'lucide-react';
+import { Copy, Download, FileText, Check, FileSpreadsheet, Trash2, Table as TableIcon, AlignLeft, CheckSquare, Square, Sparkles, ArrowRight, Upload, Captions } from 'lucide-react';
 import Button from './Button';
-
-// Debounce hook for streaming performance
-const useDebouncedValue = <T,>(value: T, delay: number, enabled: boolean): T => {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-  useEffect(() => {
-    if (!enabled) {
-      setDebouncedValue(value);
-      return;
-    }
-    const timer = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay, enabled]);
-  return debouncedValue;
-};
 
 interface TranscriptionViewProps {
   text: string;
@@ -29,12 +14,10 @@ interface TranscriptionViewProps {
 interface RowData {
     id: number;
     type: 'segment' | 'separator' | 'raw';
-    time: string; 
+    time: string; // The formatted display time (Calculated)
     speaker: string;
     content: string;
-    rawLine: string;
-    startSeconds?: number;
-    endSeconds?: number;
+    rawLine: string; // The full line string with calculated time for export/copy
 }
 
 // Time Helper Functions
@@ -63,14 +46,14 @@ const formatSecondsToTime = (totalSeconds: number): string => {
     return `${mm}:${ss}`;
 };
 
-// SRT Time Formatter (HH:MM:SS,ms)
-const formatSecondsToSRT = (totalSeconds: number): string => {
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = Math.floor(totalSeconds % 60);
-    const ms = Math.floor((totalSeconds % 1) * 1000);
+// SRT Time Format: HH:MM:SS,ms (e.g., 00:00:05,000)
+const formatSecondsToSRTTimestamp = (totalSeconds: number): string => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    const milliseconds = Math.round((totalSeconds % 1) * 1000);
 
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
 };
 
 const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onClear, onUpdate, onSwitchToSummary, className }) => {
@@ -80,24 +63,21 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
   const [viewMode, setViewMode] = useState<'table' | 'text'>('table');
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
 
-  // Debounce text during streaming to avoid re-parsing on every chunk
-  const isStreaming = status === 'transcribing';
-  const debouncedText = useDebouncedValue(text, 300, isStreaming);
-
   // Parse text into rows and apply timestamp offsets dynamically
-  // Uses debouncedText during streaming to avoid O(n) re-parsing on every chunk
   const rows: RowData[] = useMemo(() => {
-    const lines = debouncedText.split('\n');
+    const lines = text.split('\n');
     let currentOffsetSeconds = 0;
 
     return lines.map((line, index) => {
         const trimmed = line.trim();
         
         // 1. Check for Separator/Header with Start Time
+        // Regex looks for: --- [接續檔案: ... | Start: MM:SS] ---
         const separatorMatch = trimmed.match(/Start:\s*(\d{1,2}:\d{2}(?::\d{2})?)/);
         
         if (trimmed.startsWith('--- [') || trimmed.startsWith('--- [接續檔案')) {
              if (separatorMatch) {
+                 // Update the offset for subsequent lines
                  currentOffsetSeconds = parseTimeToSeconds(separatorMatch[1]);
              }
              return { id: index, type: 'separator', time: '', speaker: '', content: trimmed.replace(/---/g, '').trim(), rawLine: line };
@@ -108,8 +88,8 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
         }
 
         // 2. Check for Timestamped Segment
-        // Regex handles spaces more flexibly now: [00:00-00:05] or [00:00 - 00:05]
-        const match = line.match(/^\[(\d{1,2}:\d{2}(?::\d{2})?)(?:\s*-?\s*(\d{1,2}:\d{2}(?::\d{2})?))?\]\s*(?:(.*?):)?\s*(.*)/);
+        // Matches [00:00 - 00:05] or [00:00]
+        const match = line.match(/^\[(\d{1,2}:\d{2}(?::\d{2})?)(?:\s*-\s*(\d{1,2}:\d{2}(?::\d{2})?))?\]\s*(?:(.*?):)?\s*(.*)/);
         
         if (match) {
             const rawStartTime = match[1];
@@ -117,23 +97,22 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
             const speaker = match[3] || '';
             const content = match[4];
 
+            // Apply Offset
             const startSec = parseTimeToSeconds(rawStartTime) + currentOffsetSeconds;
             const newStartTime = formatSecondsToTime(startSec);
-            let endSec = 0;
             
             let newTimeStr = newStartTime;
             let rawLineTimeStr = `[${newStartTime}]`;
 
+            // If there's an end time, calculate that too
             if (rawEndTime) {
-                endSec = parseTimeToSeconds(rawEndTime) + currentOffsetSeconds;
+                const endSec = parseTimeToSeconds(rawEndTime) + currentOffsetSeconds;
                 const newEndTime = formatSecondsToTime(endSec);
                 newTimeStr = `${newStartTime} - ${newEndTime}`;
                 rawLineTimeStr = `[${newStartTime} - ${newEndTime}]`;
-            } else {
-                // If no end time, we will rely on next segment or default in SRT export
-                endSec = startSec + 2; 
             }
 
+            // Reconstruct the line with correct timestamps
             const newRawLine = `${rawLineTimeStr} ${speaker ? speaker + ': ' : ''}${content}`;
 
             return {
@@ -142,33 +121,34 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
                 time: newTimeStr,
                 speaker: speaker,
                 content: content,
-                rawLine: newRawLine,
-                startSeconds: startSec,
-                endSeconds: rawEndTime ? endSec : undefined // Mark as undefined if originally missing
+                rawLine: newRawLine
             };
         }
         
         return { id: index, type: 'raw', time: '', speaker: '', content: line, rawLine: line };
     });
-  }, [debouncedText]);
+  }, [text]);
 
-  // Auto-scroll
+  // Auto-scroll logic
   useEffect(() => {
     if (status === 'transcribing') {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [text, status, viewMode]);
 
-  const processedText = useMemo(() => rows.map(r => r.rawLine).join('\n'), [rows]);
+  // Construct the full text from the Processed Rows (with corrected timestamps)
+  const getProcessedText = () => {
+      return rows.map(r => r.rawLine).join('\n');
+  };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(processedText);
+    navigator.clipboard.writeText(getProcessedText());
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleDownloadTxt = () => {
-    const blob = new Blob([processedText], { type: 'text/plain' });
+    const blob = new Blob([getProcessedText()], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -176,61 +156,10 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
     a.click();
   };
 
-  const handleDownloadSRT = () => {
-      let srtContent = "";
-      let counter = 1;
-
-      // Extract only segments for easier index lookahead
-      const segments = rows.filter(r => r.type === 'segment');
-
-      segments.forEach((row, idx) => {
-          if (row.startSeconds !== undefined) {
-              // Smart End Time Logic
-              let end = row.endSeconds;
-              
-              if (end === undefined) {
-                  // If end time is missing, look at the NEXT segment's start time
-                  if (idx + 1 < segments.length && segments[idx+1].startSeconds) {
-                      const nextStart = segments[idx+1].startSeconds!;
-                      // Gap shouldn't be too huge (e.g. > 10s silence). 
-                      // If next start is 5s away, end this one at 5s.
-                      if (nextStart > row.startSeconds!) {
-                          end = Math.min(nextStart, row.startSeconds! + 7); // Cap at 7s duration if next segment is far
-                      }
-                  } 
-                  
-                  // Fallback if still undefined
-                  if (end === undefined) {
-                      end = row.startSeconds! + 3;
-                  }
-              }
-              
-              // Ensure end > start (Minimum 1s duration)
-              if (end <= row.startSeconds!) end = row.startSeconds! + 1;
-
-              srtContent += `${counter}\n`;
-              srtContent += `${formatSecondsToSRT(row.startSeconds)} --> ${formatSecondsToSRT(end)}\n`;
-              srtContent += `${row.speaker ? row.speaker + ': ' : ''}${row.content}\n\n`;
-              counter++;
-          }
-      });
-
-      if (!srtContent) {
-          alert("無法生成 SRT：找不到有效的時間戳片段。");
-          return;
-      }
-
-      const blob = new Blob([srtContent], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `subtitle_${new Date().toISOString().slice(0,10)}.srt`;
-      a.click();
-  };
-
   const handleDownloadCSV = () => {
     let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
     csvContent += "Time,Speaker,Content\n";
+    
     rows.forEach(row => {
         if (row.type === 'segment') {
             csvContent += `"${row.time}","${row.speaker}","${row.content.replace(/"/g, '""')}"\n`;
@@ -240,6 +169,7 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
              csvContent += `,,"${row.content.replace(/"/g, '""')}"\n`;
         }
     });
+
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -249,35 +179,179 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
     document.body.removeChild(link);
   };
 
-  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
-     const file = e.target.files?.[0];
-     if (!file || !onUpdate) return;
-     const reader = new FileReader();
-     reader.onload = (event) => {
-         const rawText = event.target?.result as string;
-         if (!rawText) return;
-         let input = rawText.charCodeAt(0) === 0xFEFF ? rawText.slice(1) : rawText;
-         const lines = input.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
-         let importString = "";
-         let validRowsCount = 0;
-         
-         // Simple CSV Parse
-         for(let i=0; i<lines.length; i++) {
-             const line = lines[i].trim();
-             if(!line || line.startsWith('---') || (i<5 && line.toLowerCase().includes('time,speaker'))) continue;
-             const parts = line.split(','); 
-             importString += line + "\n";
-             validRowsCount++;
-         }
-         onUpdate(importString); 
-     };
-     reader.readAsText(file);
-     e.target.value = '';
+  const handleDownloadSRT = () => {
+    let srtContent = "";
+    let counter = 1;
+
+    rows.forEach(row => {
+        if (row.type !== 'segment') return;
+
+        // Parse time range from row.time (which is computed based on offsets)
+        // Expected format in row.time: "MM:SS" or "MM:SS - MM:SS"
+        const timeParts = row.time.split('-').map(t => t.trim());
+        if (timeParts.length === 0 || !timeParts[0]) return;
+
+        const startSec = parseTimeToSeconds(timeParts[0]);
+        // Use end time if available, otherwise default to start + 5s (fallback)
+        let endSec = timeParts[1] ? parseTimeToSeconds(timeParts[1]) : startSec + 5;
+        
+        // Ensure end time is greater than start time
+        if (endSec <= startSec) endSec = startSec + 3;
+
+        // SRT Format:
+        // 1
+        // 00:00:01,000 --> 00:00:04,000
+        // Speaker: Content
+        
+        srtContent += `${counter}\n`;
+        srtContent += `${formatSecondsToSRTTimestamp(startSec)} --> ${formatSecondsToSRTTimestamp(endSec)}\n`;
+        
+        // Combine speaker and content
+        const text = row.speaker ? `${row.speaker}: ${row.content}` : row.content;
+        srtContent += `${text}\n\n`;
+        
+        counter++;
+    });
+
+    const blob = new Blob([srtContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `transcription_${new Date().toISOString().slice(0,10)}.srt`;
+    a.click();
   };
 
-  // Editing Logic
+  // ----------------------------------------------------------------
+  // Line-by-Line CSV Parser (Robust for Excel/Google Sheets)
+  // ----------------------------------------------------------------
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onUpdate) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const rawText = event.target?.result as string;
+        if (!rawText) return;
+
+        // 1. Remove BOM if present (Handles UTF-8 with BOM)
+        let input = rawText;
+        if (input.charCodeAt(0) === 0xFEFF) {
+            input = input.slice(1);
+        }
+
+        // 2. Normalize Newlines & Split into lines
+        // Splitting by line first is safer for Import features where we expect 1 row per record.
+        const lines = input.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+
+        let importString = "";
+        let validRowsCount = 0;
+
+        // Helper to parse a single CSV line with quotes
+        const parseLine = (line: string): string[] => {
+            const res: string[] = [];
+            let cur = '';
+            let inQuote = false;
+            for (let i = 0; i < line.length; i++) {
+                const c = line[i];
+                if (inQuote) {
+                    if (c === '"') {
+                        // Check for escaped quote ""
+                        if (i + 1 < line.length && line[i + 1] === '"') {
+                            cur += '"';
+                            i++;
+                        } else {
+                            inQuote = false;
+                        }
+                    } else {
+                        cur += c;
+                    }
+                } else {
+                    if (c === '"') {
+                        inQuote = true;
+                    } else if (c === ',') {
+                        res.push(cur);
+                        cur = '';
+                    } else {
+                        cur += c;
+                    }
+                }
+            }
+            res.push(cur);
+            return res;
+        };
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+
+            // Skip potential file metadata lines (e.g. "--- START OF FILE ---")
+            if (line.startsWith('---')) continue;
+
+            const cols = parseLine(line);
+
+            // Header Check (Loose match)
+            if (i < 5) {
+                 const c0 = cols[0]?.toLowerCase().trim().replace(/^"|"$/g, '');
+                 if (c0 === 'time' || c0 === '時間' || c0.startsWith('time')) {
+                     continue; // Skip header row
+                 }
+            }
+
+            // Expected: Time, Speaker, Content
+            let time = "";
+            let speaker = "";
+            let content = "";
+
+            if (cols.length >= 3) {
+                time = cols[0];
+                speaker = cols[1];
+                content = cols[2];
+                // If extra columns exist (e.g. content had unescaped commas), join them back
+                if (cols.length > 3) {
+                     content = cols.slice(2).join(',');
+                }
+            } else if (cols.length === 2) {
+                 // Fallback: Time, Content
+                 time = cols[0];
+                 content = cols[1];
+            } else if (cols.length === 1) {
+                 content = cols[0];
+            }
+
+            // Clean Data
+            const cleanTime = time.trim();
+            const cleanSpeaker = speaker.trim();
+            const cleanContent = content.trim();
+
+            if (cleanTime) {
+                 // Ensure time is wrapped in brackets [ ]
+                 const timeStr = cleanTime.startsWith('[') ? cleanTime : `[${cleanTime}]`;
+                 importString += `${timeStr} ${cleanSpeaker ? cleanSpeaker + ': ' : ''}${cleanContent}\n`;
+                 validRowsCount++;
+            } else if (cleanContent) {
+                 // Raw text line
+                 importString += `${cleanContent}\n`;
+                 validRowsCount++;
+            }
+        }
+        
+        if (validRowsCount > 0) {
+             if (window.confirm(`成功解析 ${validRowsCount} 行資料。確定導入嗎？(將覆蓋現有內容)`)) {
+                 onUpdate(importString);
+             }
+        } else {
+            alert("無法解析 CSV 檔案。\n請確認檔案格式為標準 CSV (逗號分隔)，並包含 Time, Speaker, Content 欄位。");
+        }
+    };
+    reader.readAsText(file);
+    // Reset input
+    e.target.value = '';
+  };
+
+  // Editing Logic (Modified to update the raw text stream properly)
   const updateRow = (index: number, field: 'time' | 'speaker' | 'content', value: string) => {
     if (!onUpdate) return;
+    
     const row = rows[index];
     if (row.type !== 'segment') {
          const lines = text.split('\n');
@@ -285,32 +359,68 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
          onUpdate(lines.join('\n'));
          return;
     }
+
     const newSpeaker = field === 'speaker' ? value : row.speaker;
     const newContent = field === 'content' ? value : row.content;
+    
     const lines = text.split('\n');
     const originalLine = lines[index];
+    
     if (field === 'content' || field === 'speaker') {
          const timeMatch = originalLine.match(/^(\[.*?\])/);
          const originalTimestampPrefix = timeMatch ? timeMatch[1] : `[${row.time}]`;
+         
          const spk = newSpeaker ? `${newSpeaker}: ` : '';
          lines[index] = `${originalTimestampPrefix} ${spk}${newContent}`;
     } else if (field === 'time') {
+         let effectiveOffset = 0;
+         for(let i=index; i>=0; i--) {
+             if (rows[i].type === 'separator') {
+                 const match = rows[i].content.match(/Start:\s*(\d{1,2}:\d{2}(?::\d{2})?)/);
+                 if (match) {
+                     effectiveOffset = parseTimeToSeconds(match[1]);
+                     break;
+                 }
+             }
+         }
+         
+         const userTimeParts = value.split('-').map(t => t.trim());
+         const startSec = parseTimeToSeconds(userTimeParts[0]);
+         const endSec = userTimeParts[1] ? parseTimeToSeconds(userTimeParts[1]) : null;
+         
+         const relStart = Math.max(0, startSec - effectiveOffset);
+         let relTimeStr = formatSecondsToTime(relStart);
+         
+         if (endSec !== null) {
+             const relEnd = Math.max(0, endSec - effectiveOffset);
+             relTimeStr += ` - ${formatSecondsToTime(relEnd)}`;
+         }
+         
          const spk = newSpeaker ? `${newSpeaker}: ` : '';
-         lines[index] = `[${value}] ${spk}${newContent}`;
+         lines[index] = `[${relTimeStr}] ${spk}${newContent}`;
     }
+
     onUpdate(lines.join('\n'));
   };
 
+  // Selection Logic
   const toggleSelect = (index: number) => {
     const newSet = new Set(selectedIndices);
-    if (newSet.has(index)) newSet.delete(index);
-    else newSet.add(index);
+    if (newSet.has(index)) {
+        newSet.delete(index);
+    } else {
+        newSet.add(index);
+    }
     setSelectedIndices(newSet);
   };
 
   const toggleSelectAll = () => {
-     if (selectedIndices.size === rows.length) setSelectedIndices(new Set());
-     else setSelectedIndices(new Set(rows.map((_, i) => i)));
+     if (selectedIndices.size === rows.length) {
+         setSelectedIndices(new Set());
+     } else {
+         const allIndices = rows.map((_, i) => i);
+         setSelectedIndices(new Set(allIndices));
+     }
   };
 
   const handleDeleteSelected = () => {
@@ -323,17 +433,19 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
       }
   };
 
+  // Rendering
   const renderTable = () => {
     const tableRows: React.ReactNode[] = [];
     const isTranscribing = status === 'transcribing';
 
     rows.forEach((row, index) => {
         if (!row.content.trim() && row.type === 'raw') return;
+
         if (row.type === 'separator') {
             tableRows.push(
-                <tr key={index} className="bg-blue-50 dark:bg-blue-900/20">
+                <tr key={index} className="bg-blue-50 dark:bg-blue-900/30">
                     <td className="w-10 px-2 py-2 text-center border-b border-slate-100 dark:border-slate-700"></td>
-                    <td colSpan={3} className="px-4 py-2 text-xs font-semibold text-blue-600 dark:text-blue-400 text-center border-b border-slate-100 dark:border-slate-700 font-mono">
+                    <td colSpan={3} className="px-4 py-2 text-xs font-semibold text-blue-600 dark:text-blue-300 text-center border-b border-slate-100 dark:border-slate-700 font-mono">
                         {row.content}
                     </td>
                 </tr>
@@ -359,7 +471,7 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
                      {row.type === 'segment' ? (
                          <input 
                             type="text"
-                            value={row.time}
+                            value={row.time} // Displays Calculated Time
                             disabled={isTranscribing}
                             onChange={(e) => updateRow(index, 'time', e.target.value)}
                             className="w-full bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-600 focus:border-blue-300 dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 rounded px-1 py-0.5 text-xs font-mono text-slate-500 dark:text-slate-400 outline-none transition-all"
@@ -389,7 +501,7 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
                             target.style.height = 'auto';
                             target.style.height = `${target.scrollHeight}px`;
                         }}
-                        className={`w-full bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-600 focus:border-blue-300 dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 rounded px-1 py-0.5 text-sm text-slate-800 dark:text-slate-200 leading-relaxed outline-none resize-none overflow-hidden transition-all`}
+                        className="w-full bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-600 focus:border-blue-300 dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 rounded px-1 py-0.5 text-sm text-slate-800 dark:text-slate-200 leading-relaxed outline-none resize-none overflow-hidden transition-all"
                     />
                 </td>
             </tr>
@@ -402,25 +514,37 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
                 <tr>
                     <th className="px-2 py-2 w-10 text-center">
                          {!isTranscribing && (
-                            <button onClick={toggleSelectAll} className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
+                            <button onClick={toggleSelectAll} className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
                                 {selectedIndices.size > 0 && selectedIndices.size === rows.length ? <CheckSquare size={16}/> : <Square size={16}/>}
                             </button>
                          )}
                     </th>
-                    <th className="px-2 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 w-36">時間</th>
+                    <th className="px-2 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 w-36">時間 (開始 - 結束)</th>
                     <th className="px-2 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 w-28">說話者</th>
-                    <th className="px-2 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400">內容</th>
+                    <th className="px-2 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400">內容 (點擊可編輯)</th>
                 </tr>
             </thead>
-            <tbody>{tableRows}</tbody>
+            <tbody>
+                {tableRows}
+            </tbody>
         </table>
     );
   };
 
+  // If viewing as plain text, we also want to show the CALCULATED timestamps, not the raw 00:00 ones.
+  const renderTextView = () => {
+      return (
+        <div className="p-6 font-mono text-sm leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap">
+            {getProcessedText()}
+            <div ref={bottomRef} />
+        </div>
+      );
+  };
+
   return (
-    <div className={`bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col transition-colors ${className || 'h-[650px]'}`}>
+    <div className={`bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col ${className || 'h-[650px]'}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-t-xl flex-wrap gap-2 shrink-0">
+      <div className="flex items-center justify-between p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 rounded-t-xl flex-wrap gap-2 shrink-0">
         <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-semibold">
           <FileText size={20} className="text-blue-600 dark:text-blue-400" />
           結果
@@ -429,7 +553,11 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
         {/* Toolbar */}
         <div className="flex items-center gap-1 flex-wrap justify-end">
            {selectedIndices.size > 0 && viewMode === 'table' && (
-                <Button variant="danger" onClick={handleDeleteSelected} className="text-xs h-8 px-2 mr-2">
+                <Button 
+                    variant="danger" 
+                    onClick={handleDeleteSelected} 
+                    className="text-xs h-8 px-2 mr-2 animate-fade-in"
+                >
                     <Trash2 size={14} className="mr-1"/> 刪除 ({selectedIndices.size})
                 </Button>
            )}
@@ -437,67 +565,76 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
            <div className="flex bg-slate-200 dark:bg-slate-700 rounded-lg p-1 mr-2">
               <button 
                 onClick={() => setViewMode('table')}
-                className={`p-1 rounded flex items-center gap-1 text-xs font-medium ${viewMode === 'table' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}
+                className={`p-1 rounded flex items-center gap-1 text-xs font-medium transition-all ${viewMode === 'table' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
               >
                 <TableIcon size={14} /> 表格
               </button>
               <button 
                 onClick={() => setViewMode('text')}
-                className={`p-1 rounded flex items-center gap-1 text-xs font-medium ${viewMode === 'text' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}
+                className={`p-1 rounded flex items-center gap-1 text-xs font-medium transition-all ${viewMode === 'text' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
               >
                 <AlignLeft size={14} /> 純文字
               </button>
            </div>
            
+           <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+           
            {onSwitchToSummary && (
                <Button 
                 variant="ghost" 
                 onClick={onSwitchToSummary} 
-                className="text-xs h-8 px-2 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30" 
+                className="text-xs h-8 px-2 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/30" 
+                title="轉至摘要面板"
                >
-                 <Sparkles size={14} className="mr-1" /> AI 摘要 <ArrowRight size={14} className="ml-1"/>
+                 <Sparkles size={14} className="mr-1" /> 前往 AI 摘要 <ArrowRight size={14} className="ml-1"/>
                </Button>
            )}
 
-           <Button variant="ghost" onClick={onClear} className="text-xs h-8 px-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30">
+           <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+
+           <Button variant="ghost" onClick={onClear} className="text-xs h-8 px-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20" title="清空文字">
             <Trash2 size={14} />
           </Button>
-
-          <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleImportCSV} />
-          <Button variant="ghost" onClick={() => fileInputRef.current?.click()} className="text-xs h-8 px-2 text-slate-600 dark:text-slate-300">
-             <Upload size={14} /> <span className="hidden xs:inline ml-1">導入</span>
-          </Button>
-
-          <Button variant="ghost" onClick={handleCopy} className="text-xs h-8 px-2 text-slate-600 dark:text-slate-300">
-            {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-          </Button>
+          <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
           
-          <Button variant="ghost" onClick={handleDownloadTxt} className="text-xs h-8 px-2 text-slate-600 dark:text-slate-300" title="下載 .txt">
-            <Download size={14} /> <span className="hidden xs:inline ml-1">TXT</span>
+          <input 
+            type="file" 
+            ref={fileInputRef}
+            className="hidden" 
+            accept=".csv"
+            onChange={handleImportCSV}
+          />
+          <Button variant="ghost" onClick={() => fileInputRef.current?.click()} className="text-xs h-8 px-2 dark:text-slate-300 dark:hover:bg-slate-700" title="導入 CSV">
+             <Upload size={14} /> 導入
           </Button>
-           <Button variant="ghost" onClick={handleDownloadCSV} className="text-xs h-8 px-2 text-slate-600 dark:text-slate-300" title="下載 .csv">
-            <FileSpreadsheet size={14} /> <span className="hidden xs:inline ml-1">CSV</span>
+
+          <Button variant="ghost" onClick={handleCopy} className="text-xs h-8 px-2 dark:text-slate-300 dark:hover:bg-slate-700">
+            {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+            {copied ? "已複製" : "複製"}
           </Button>
-          <Button variant="ghost" onClick={handleDownloadSRT} className="text-xs h-8 px-2 text-slate-600 dark:text-slate-300" title="下載 .srt 字幕">
-            <Subtitles size={14} /> <span className="hidden xs:inline ml-1">SRT</span>
+          <Button variant="ghost" onClick={handleDownloadTxt} className="text-xs h-8 px-2 dark:text-slate-300 dark:hover:bg-slate-700" title="下載 .txt">
+            <Download size={14} /> TXT
+          </Button>
+          <Button variant="ghost" onClick={handleDownloadSRT} className="text-xs h-8 px-2 dark:text-slate-300 dark:hover:bg-slate-700" title="下載 .srt (字幕檔)">
+            <Captions size={14} /> SRT
+          </Button>
+           <Button variant="ghost" onClick={handleDownloadCSV} className="text-xs h-8 px-2 dark:text-slate-300 dark:hover:bg-slate-700" title="下載 .csv">
+            <FileSpreadsheet size={14} /> CSV
           </Button>
         </div>
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto bg-white dark:bg-slate-800 scrollbar-thin relative min-h-0">
+      <div className="flex-1 overflow-y-auto bg-white dark:bg-slate-900 scrollbar-thin relative min-h-0">
         {!text ? (
-          <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 p-8 text-center">
+          <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 p-8 text-center">
             <TableIcon size={48} className="mb-4 opacity-20" />
             <p>轉錄內容將顯示於此...</p>
             <p className="text-xs mt-2 opacity-60">支援導入 CSV 檔案恢復編輯</p>
           </div>
         ) : (
             viewMode === 'text' ? (
-                <div className="p-6 font-mono leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap text-sm">
-                    {processedText}
-                    <div ref={bottomRef} />
-                </div>
+                renderTextView()
             ) : (
                 <div className="pb-4">
                     {renderTable()}
@@ -508,8 +645,8 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
       </div>
       
       {/* Footer Status */}
-      <div className="p-2 border-t border-slate-100 dark:border-slate-700 text-xs text-center text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-b-xl flex justify-between px-4 shrink-0">
-        <span>字數統計: {processedText.length}</span>
+      <div className="p-2 border-t border-slate-100 dark:border-slate-800 text-xs text-center text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-b-xl flex justify-between px-4 shrink-0">
+        <span>字數統計: {getProcessedText().length}</span>
         {viewMode === 'table' && <span className="text-blue-600 dark:text-blue-400 hidden sm:inline">時間戳已自動校正 | 可點擊文字編輯</span>}
       </div>
     </div>

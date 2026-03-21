@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { TranscriptionSettings, TranscriptionError } from "../types";
 import { MAX_FILE_SIZE_INLINE, LANGUAGES, ERROR_MESSAGES } from "../constants";
@@ -111,22 +110,20 @@ export const transcribeMedia = async (
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  // 1. Build System Instruction with Multiple Languages support
-  // Ensure we have at least one language
-  const targetLangs = settings.language.length > 0 ? settings.language : ['yue'];
+  // 1. Build System Instruction for Multiple Languages
+  const selectedLangIds = settings.language;
+  const selectedLangs = LANGUAGES.filter(l => selectedLangIds.includes(l.id));
   
-  const langInstructions = targetLangs.map(langId => {
-      const langConfig = LANGUAGES.find(l => l.id === langId);
-      return langConfig ? langConfig.instruction : '';
-  }).join('\n');
+  // Fallback to Cantonese if empty (should not happen via UI)
+  if (selectedLangs.length === 0) selectedLangs.push(LANGUAGES[0]);
 
-  const langNames = targetLangs.map(langId => {
-      return LANGUAGES.find(l => l.id === langId)?.name || langId;
-  }).join(', ');
+  const langNames = selectedLangs.map(l => l.name).join(', ');
+  const langInstructions = selectedLangs.map(l => `### ${l.name} Rules:\n${l.instruction}`).join('\n\n');
 
   let systemInstruction = `
-You are a professional Subtitler / Transcriber aimed at creating exact, time-synced subtitles.
-Your task is to transcribe the **ENTIRE** audio/video file word-for-word.
+You are a professional Transcriber. 
+Your task is to transcribe the **ENTIRE** audio/video file into text with high accuracy.
+The audio may contain one or more of the following languages: **${langNames}**.
 
 **CRITICAL INSTRUCTION: FULL DURATION**
 - The audio file may be long (e.g., > 3 minutes). 
@@ -135,35 +132,23 @@ Your task is to transcribe the **ENTIRE** audio/video file word-for-word.
 - **Do not stop** after the first minute.
 - If the audio is silent for a while, write [Silence], then continue listening for speech.
 
-**Language Handling:**
-- The audio may contain the following languages: **${langNames}**.
-- Detect and switch languages naturally.
-- Handle code-mixing accurately.
-
-**Language Specific Rules:**
+**Language Rules:**
 ${langInstructions}
+
+**Mixed Language Handling (Code-Switching):**
+If the audio switches between the selected languages (e.g., Cantonese mixed with English), transcribe each part in its respective language script accurately.
 `;
 
-  // Formatting & Timestamp Logic - ULTRA PRECISION MODE
+  // Formatting & Timestamp Logic
   if (settings.enableTimestamps) {
     systemInstruction += `
-**STRICT TIMESTAMP & SEGMENTATION PROTOCOL:**
-1. **Format:** \`[MM:SS - MM:SS] Speaker Name: Content\`
-2. **Granularity (CRITICAL):** 
-   - Transcribe **SENTENCE BY SENTENCE**.
-   - **ABSOLUTELY FORBIDDEN** to merge multiple sentences into one timestamp block.
-   - **MAXIMUM DURATION**: Each timestamp segment must be **UNDER 7 SECONDS** unless it is a single continuous utterance without pauses.
-   - If a speaker pauses for even 0.5 seconds, start a **NEW** timestamp line.
-3. **Precision:**
-   - The [Start] time must match exactly when the sound begins.
-   - The [End] time must match exactly when the sound ends.
-   - Do NOT round off times loosely. Be precise.
-4. **Structure Example:**
-   [00:00 - 00:03] Speaker: Hello everyone.
-   [00:03 - 00:06] Speaker: Today we are discussing the project.
-   [00:06 - 00:10] Speaker: Please look at the screen.
-5. **Reset:** Times are relative to the start of THIS file (00:00).
-`;
+**Formatting:**
+- Output specific format per line: \`[MM:SS - MM:SS] Speaker Name: Content\`
+- Example: \`[00:00 - 00:05] Peter: Hello.\`
+- Unknown speaker: "Unknown".
+- No Markdown bolding for metadata.
+- **Every sentence** must have a timestamp.
+- **IMPORTANT:** Always start timestamps from **00:00** relative to the beginning of THIS specific file. Do not attempt to calculate offsets from previous files.`;
   } else {
     systemInstruction += `
 **Formatting:**
@@ -213,27 +198,22 @@ ${langInstructions}
     }
 
     // 3. Generate Stream
-    // Determine thinking budget based on model.
-    // gemini-3-pro-preview mandates a non-zero thinking budget (Thinking Mode).
-    // gemini-3-flash-preview allows 0 to disable it.
-    const thinkingBudget = settings.model === 'gemini-3-pro-preview' ? 2048 : 0;
-
     const responseStream = await ai.models.generateContentStream({
-      model: settings.model,
+      model: 'gemini-3-pro-preview', // HARDCODED
       contents: [
         {
           role: 'user',
           parts: [
             contentPart,
-            { text: "Transcribe the audio file word-for-word. FOLLOW THE SEGMENTATION RULES STRICTLY. Output short, precise segments." }
+            { text: "Transcribe the audio file word-for-word. Please ensure you process the FULL duration of the file, not just the beginning. Do not summarize." }
           ]
         }
       ],
       config: {
         systemInstruction: systemInstruction,
-        temperature: 0.0, // Set to 0.0 for maximum determinism and reduced hallucination
+        temperature: 0.2,
         maxOutputTokens: 65536,
-        thinkingConfig: { thinkingBudget: thinkingBudget }, 
+        thinkingConfig: { thinkingBudget: 0 },
         safetySettings: [
           { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
           { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -267,11 +247,6 @@ ${langInstructions}
     if (error.message?.includes('429')) errObj.type = 'quota';
     if (error.message?.includes('fetch')) errObj.type = 'network';
     if (error.response?.promptFeedback?.blockReason) errObj.type = 'safety';
-    // Capture the Budget 0 invalid error
-    if (error.message?.includes('Budget 0 is invalid')) {
-         errObj.message = "此模型 (Gemini 3 Pro) 必須啟用思考模式，請重新整理或聯絡管理員更新設定。";
-         errObj.type = 'general';
-    }
 
     throw errObj;
   }
@@ -305,7 +280,7 @@ ${text.slice(0, 100000)} ... (截取部分內容以符合 Context Window，若�
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview', // HARDCODED
       contents: [
           { role: 'user', parts: [{ text: text }, { text: prompt }] } // Send full text as first part context
       ],

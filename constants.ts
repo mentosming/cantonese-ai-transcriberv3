@@ -1,61 +1,70 @@
-
 export const MAX_FILE_SIZE_INLINE = 20 * 1024 * 1024; // Reverted to 20MB (Standard Google API limit)
+
+export const DOWNLOAD_API_URL = process.env.DOWNLOAD_API_URL || '';
 
 export const LANGUAGES = [
   { 
     id: 'yue', 
     name: '廣東話 (Cantonese)', 
     instruction: `
-- **Primary Language:** Cantonese (Hong Kong).
-- **Orthography:** Use proper Cantonese characters (正字), e.g., 嘅, 喺, 咁, 唔, 係.
-- **No SWC:** Do NOT convert to Standard Written Chinese. Write exactly what is heard.` 
-  },
-  { 
-    id: 'en', 
-    name: 'English', 
-    instruction: `
-- **Language:** English.
-- **Accuracy:** Transcribe exactly what is said.` 
+1. **Language:** Output strictly in **Cantonese (Hong Kong)**.
+2. **Orthography:** Use proper Cantonese characters (正字), such as:
+   - 嘅 (ge3)
+   - 喺 (hai2)
+   - 咁 (gam3/gam2)
+   - 唔 (m4)
+   - 係 (hai6)
+3. **No SWC:** Do NOT convert the text into Standard Written Chinese (SWC). Write exactly what is said.
+4. **Code-Mixing:** Accurately transcribe English words or phrases mixed into sentences (e.g., "今日個 project 好 rush").` 
   },
   { 
     id: 'zh-TW', 
     name: '國語 (繁體中文)', 
     instruction: `
-- **Language:** Traditional Chinese (Taiwan/Hong Kong).
-- **Accuracy:** Transcribe exactly what is said.` 
+1. **Language:** Output strictly in **Traditional Chinese (Taiwan/Hong Kong)**.
+2. **Accuracy:** Transcribe exactly what is said. Do not summarize.` 
   },
   { 
     id: 'zh-CN', 
     name: '普通話 (简体中文)', 
     instruction: `
-- **Language:** Simplified Chinese.
-- **Accuracy:** Transcribe exactly what is said.` 
+1. **Language:** Output strictly in **Simplified Chinese**.
+2. **Accuracy:** Transcribe exactly what is said. Do not summarize.` 
   },
   { 
-    id: 'id', 
-    name: '印尼語 (Bahasa Indonesia)', 
+    id: 'en', 
+    name: 'English', 
     instruction: `
-- **Language:** Indonesian.
-- **Accuracy:** Transcribe exactly what is said.` 
-  },
-  { 
-    id: 'fil', 
-    name: '菲律賓語 (Filipino/Tagalog)', 
-    instruction: `
-- **Language:** Filipino (Tagalog).
-- **Accuracy:** Transcribe exactly what is said.` 
+1. **Language:** Output strictly in **English**.
+2. **Accuracy:** Transcribe exactly what is said.` 
   },
   { 
     id: 'ja', 
     name: '日本語 (Japanese)', 
     instruction: `
-- **Language:** Japanese.` 
+1. **Language:** Output strictly in **Japanese**.
+2. **Accuracy:** Transcribe exactly what is said.` 
   },
   { 
     id: 'ko', 
     name: '韓語 (Korean)', 
     instruction: `
-- **Language:** Korean.` 
+1. **Language:** Output strictly in **Korean**.
+2. **Accuracy:** Transcribe exactly what is said.` 
+  },
+  { 
+    id: 'id', 
+    name: '印尼語 (Indonesian)', 
+    instruction: `
+1. **Language:** Output strictly in **Indonesian (Bahasa Indonesia)**.
+2. **Accuracy:** Transcribe exactly what is said.` 
+  },
+  { 
+    id: 'fil', 
+    name: '菲律賓語 (Filipino)', 
+    instruction: `
+1. **Language:** Output strictly in **Filipino (Tagalog)**.
+2. **Taglish:** Accurately transcribe Taglish (Tagalog-English code-switching) exactly as spoken.` 
   }
 ];
 

@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Sparkles, Copy, Check, FileText, Loader2, AlertCircle } from 'lucide-react';
+import { Sparkles, Copy, Check, FileText, Loader2, ArrowRight } from 'lucide-react';
 import Button from './Button';
 import { generateSummary } from '../services/geminiService';
 
@@ -40,12 +39,12 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ transcriptionText }) => {
   };
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col h-full overflow-hidden transition-colors">
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-full overflow-hidden transition-colors">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/30 border-b border-indigo-100 dark:border-indigo-800 shrink-0">
+      <div className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 border-b border-indigo-100 dark:border-indigo-900/30 shrink-0">
         <div className="flex items-center gap-2 text-indigo-800 dark:text-indigo-300 font-semibold">
           <Sparkles size={18} className="text-indigo-600 dark:text-indigo-400" />
-          <span>AI 摘要 (問答版)</span>
+          <span>AI 智能摘要 (問答版)</span>
         </div>
         
         {/* Actions */}
@@ -54,7 +53,7 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ transcriptionText }) => {
                 <Button 
                     variant="ghost" 
                     onClick={handleCopy} 
-                    className="text-xs h-8 px-2 bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700"
+                    className="text-xs h-8 px-2 bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-slate-700"
                 >
                     {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
                     {copied ? "已複製" : "複製內容"}
@@ -64,9 +63,9 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ transcriptionText }) => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto p-4 scrollbar-thin bg-white dark:bg-slate-800 relative">
+      <div className="flex-1 overflow-y-auto p-4 scrollbar-thin bg-white dark:bg-slate-900 relative">
         {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg mb-4 flex items-center border border-red-100 dark:border-red-800">
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg mb-4 flex items-center border border-red-100 dark:border-red-900/50">
                 <AlertCircle size={16} className="mr-2" />
                 {error}
             </div>
@@ -75,23 +74,23 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ transcriptionText }) => {
         {isLoading ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 space-y-4">
                 <div className="relative">
-                    <Loader2 size={48} className="animate-spin text-indigo-500" />
-                    <Sparkles size={20} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-indigo-300" />
+                    <Loader2 size={48} className="animate-spin text-indigo-500 dark:text-indigo-400" />
+                    <Sparkles size={20} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-indigo-300 dark:text-indigo-600" />
                 </div>
                 <div className="text-center">
-                    <p className="text-indigo-800 dark:text-indigo-300 font-medium text-lg">AI 正在分析...</p>
+                    <p className="text-indigo-800 dark:text-indigo-200 font-medium text-lg">AI 正在分析內容...</p>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">正在整合背景資訊與關鍵對話 (保留 50% 細節)</p>
                 </div>
             </div>
         ) : summary ? (
             <div className="animate-fade-in">
-                <div className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-lg border border-slate-100 dark:border-slate-700 text-sm text-slate-800 dark:text-slate-200 leading-relaxed font-mono whitespace-pre-wrap shadow-inner">
+                <div className="bg-slate-50 dark:bg-slate-800 p-6 rounded-lg border border-slate-100 dark:border-slate-700 text-sm text-slate-800 dark:text-slate-200 leading-relaxed font-mono whitespace-pre-wrap shadow-inner">
                     {summary}
                 </div>
                  <div className="mt-4 flex justify-end">
                     <Button 
                         onClick={handleGenerate} 
-                        className="text-xs h-9 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                        className="text-xs h-9 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm dark:bg-indigo-700 dark:hover:bg-indigo-600"
                     >
                         <Sparkles size={14} className="mr-1" />
                         重新生成摘要
@@ -105,7 +104,7 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ transcriptionText }) => {
                 </div>
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">準備生成詳細摘要</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mb-8 leading-relaxed">
-                    AI 將會分析您的轉錄內容，並生成一份包含背景資訊與案情經過的「問答式 (Q&A)」詳細摘要，確保保留原文至少 50% 的重要細節。
+                    AI 將會分析您的轉錄內容，並生成一份包含背景資訊與重點經過的「問答式 (Q&A)」詳細摘要，確保保留原文至少 50% 的重要細節。
                 </p>
                 
                 <Button 
@@ -118,7 +117,7 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ transcriptionText }) => {
                 </Button>
                 
                 {!transcriptionText && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-4 bg-amber-50 dark:bg-amber-900/20 px-3 py-1 rounded-full border border-amber-100 dark:border-amber-800">
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-4 bg-amber-50 dark:bg-amber-900/20 px-3 py-1 rounded-full border border-amber-100 dark:border-amber-900/30">
                         ⚠️ 請先完成語音轉錄
                     </p>
                 )}
@@ -128,5 +127,8 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ transcriptionText }) => {
     </div>
   );
 };
+
+// Internal icon for error
+import { AlertCircle } from 'lucide-react';
 
 export default SummaryPanel;

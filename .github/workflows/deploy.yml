@@ -1,0 +1,60 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          # Inject the secret from GitHub Settings into the build process
+          API_KEY: ${{ secrets.API_KEY }}
+          DOWNLOAD_API_URL: https://cantonese-ai-transcriber-api.zeabur.app
+          NODE_ENV: production
+
+      # Create CNAME file for Hostinger Domain
+      # This file tells GitHub Pages to respond to your custom domain
+      - name: Create CNAME
+        run: echo "cantonese-ai-transcriber.com" > ./dist/CNAME
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { FileAudio, FileVideo, Download, AlertCircle, Loader2, HardDrive, CheckCircle2, ArrowRight } from 'lucide-react';
 import Button from './Button';
@@ -12,6 +11,7 @@ const AudioExtractor: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Helper: Convert Float32Array (AudioBuffer) to Int16Array (PCM)
   const floatTo16BitPCM = (input: Float32Array) => {
     const output = new Int16Array(input.length);
     for (let i = 0; i < input.length; i++) {
@@ -48,7 +48,7 @@ const AudioExtractor: React.FC = () => {
       await new Promise(r => setTimeout(r, 100)); // Allow UI update
 
       let channels = audioBuffer.numberOfChannels;
-      if (channels > 2) channels = 2; 
+      if (channels > 2) channels = 2; // Stereo max for simple LameJS usage
 
       const lamejs = (window as any).lamejs;
       if (!lamejs || !lamejs.Mp3Encoder) {
@@ -62,9 +62,10 @@ const AudioExtractor: React.FC = () => {
 
       const mp3Data: Int8Array[] = [];
       const sampleBlockSize = 1152;
-      const processingChunk = sampleBlockSize * 100;
+      const processingChunk = sampleBlockSize * 100; // Process in chunks to avoid blocking UI too much
 
       for (let i = 0; i < leftData.length; i += processingChunk) {
+          // Update progress occasionally
           if (i > 0 && i % (processingChunk * 10) === 0) {
              const progress = Math.round((i / leftData.length) * 100);
              setStatusMsg(`編碼中... ${progress}%`);
@@ -103,7 +104,7 @@ const AudioExtractor: React.FC = () => {
   };
 
   return (
-    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors">
+    <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
       <div className="flex items-center gap-2 mb-3 text-purple-600 dark:text-purple-400">
         <HardDrive size={20} />
         <h3 className="font-semibold">本機影音轉檔 (MP3)</h3>
@@ -119,15 +120,15 @@ const AudioExtractor: React.FC = () => {
               type="file" 
               accept="video/*,audio/*"
               ref={fileInputRef}
-              className="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-50 dark:file:bg-purple-900/30 file:text-purple-700 dark:file:text-purple-300 hover:file:bg-purple-100 dark:hover:file:bg-purple-900/50 cursor-pointer"
+              className="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-50 dark:file:bg-purple-900/30 file:text-purple-700 dark:file:text-purple-300 hover:file:bg-purple-100 cursor-pointer"
               onChange={handleFileChange}
             />
         </div>
 
         {file && (
-             <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-700/50 rounded border border-slate-100 dark:border-slate-600">
+             <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded border border-slate-100 dark:border-slate-700">
                 {file.type.startsWith('video') ? <FileVideo size={16} className="text-blue-500"/> : <FileAudio size={16} className="text-purple-500"/>}
-                <span className="text-xs text-slate-700 dark:text-slate-200 truncate flex-1">{file.name}</span>
+                <span className="text-xs text-slate-700 dark:text-slate-300 truncate flex-1">{file.name}</span>
                 <span className="text-[10px] text-slate-400">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
              </div>
         )}
@@ -135,7 +136,7 @@ const AudioExtractor: React.FC = () => {
         <Button 
             onClick={handleConvert} 
             disabled={!file || isProcessing}
-            className="w-full text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
+            className="w-full text-sm dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600"
             variant="secondary"
         >
             {isProcessing ? <Loader2 className="animate-spin" size={16}/> : <ArrowRight size={16} />}
@@ -157,7 +158,7 @@ const AudioExtractor: React.FC = () => {
              target="_blank"
              rel="noreferrer"
              download={resultFileName}
-             className="flex items-center justify-center gap-2 w-full p-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors font-medium text-xs mt-1"
+             className="flex items-center justify-center gap-2 w-full p-2 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors font-medium text-xs mt-1"
            >
              <Download size={14} /> 下載 MP3
            </a>

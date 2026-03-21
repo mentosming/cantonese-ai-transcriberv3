@@ -1,7 +1,5 @@
 {
-  "name": "Cantonese AI Transcriber V5.0",
-  "description": "專業廣東話語音轉文字工具，支援網絡連結錄製備援、說話者辨識及長檔案處理。",
-  "requestFramePermissions": [
-    "microphone"
-  ]
+  "name": "cantonese-ai-transcriber",
+  "description": "專業廣東話語音轉文字工具，使用 Gemini 3.0 Pro，支援中英夾雜、說話者辨識及長檔案分割處理。",
+  "requestFramePermissions": []
 }

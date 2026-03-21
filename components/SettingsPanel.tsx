@@ -1,6 +1,5 @@
-
-import React, { useState } from 'react';
-import { Settings2, Plus, Trash2, Clock, Globe, MessageSquarePlus, CheckSquare, Square } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Settings2, Plus, Trash2, Clock, Globe, MessageSquarePlus, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { TranscriptionSettings, Speaker } from '../types';
 import { LANGUAGES } from '../constants';
 
@@ -12,6 +11,19 @@ interface SettingsPanelProps {
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disabled }) => {
   const [newSpeakerName, setNewSpeakerName] = useState('');
+  const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
+  const langMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (langMenuRef.current && !langMenuRef.current.contains(event.target as Node)) {
+        setIsLangMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const toggleDiarization = () => {
     onChange({ ...settings, enableDiarization: !settings.enableDiarization });
@@ -21,28 +33,24 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
     onChange({ ...settings, enableTimestamps: !settings.enableTimestamps });
   };
 
-  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onChange({ ...settings, model: e.target.value as any });
-  };
-  
+  // Multi-select Language Handler
   const toggleLanguage = (langId: string) => {
-    if (disabled) return;
-    
-    let newLangs = [...settings.language];
-    if (newLangs.includes(langId)) {
-        // Don't allow removing if it's the only one
-        if (newLangs.length > 1) {
-            newLangs = newLangs.filter(id => id !== langId);
-        }
-    } else {
-        if (newLangs.length < 3) {
-            newLangs.push(langId);
-        } else {
-            alert("最多只能選擇 3 種語言 (Maximum 3 languages)");
-            return;
-        }
-    }
-    onChange({ ...settings, language: newLangs });
+      if (disabled) return;
+      
+      const current = settings.language;
+      const exists = current.includes(langId);
+
+      let updated: string[];
+      if (exists) {
+          // Prevent deselecting the last language
+          if (current.length <= 1) return;
+          updated = current.filter(id => id !== langId);
+      } else {
+          // Limit to 3 languages
+          if (current.length >= 3) return;
+          updated = [...current, langId];
+      }
+      onChange({ ...settings, language: updated });
   };
   
   const handleStartTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,60 +76,63 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
     onChange({ ...settings, speakers: updated });
   };
 
+  // Helper to get display text for selected languages
+  const getSelectedLangNames = () => {
+      const names = LANGUAGES.filter(l => settings.language.includes(l.id)).map(l => l.name);
+      return names.join(', ');
+  };
+
   return (
-    <div className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors">
+    <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
       <div className="flex items-center gap-2 mb-4 text-slate-800 dark:text-slate-100">
         <Settings2 size={20} />
         <h2 className="font-semibold text-lg">AI 設定</h2>
       </div>
 
       <div className="space-y-6">
-        {/* Language Selection (Multi-select) */}
+        {/* Language Selection (Multi-Select) */}
         <div>
-           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex justify-between">
-               <span>音訊語言 (可多選, 最多3項)</span>
-               <span className="text-xs text-slate-400">{settings.language.length}/3</span>
+           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+               音訊語言 (最多 3 種)
            </label>
-           <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin">
-              {LANGUAGES.map(lang => {
-                  const isSelected = settings.language.includes(lang.id);
-                  return (
-                    <button
-                        key={lang.id}
-                        onClick={() => toggleLanguage(lang.id)}
-                        disabled={disabled}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium text-left transition-all
-                            ${isSelected 
-                                ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300' 
-                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-600'}
-                            ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-                        `}
-                    >
-                        {isSelected ? <CheckSquare size={14} className="shrink-0"/> : <Square size={14} className="shrink-0"/>}
-                        <span className="truncate">{lang.name}</span>
-                    </button>
-                  );
-              })}
-           </div>
-        </div>
+           <div className="relative" ref={langMenuRef}>
+              <button 
+                type="button"
+                onClick={() => !disabled && setIsLangMenuOpen(!isLangMenuOpen)}
+                className={`w-full pl-3 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-900 dark:text-slate-100 flex items-center justify-between text-left ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              >
+                  <div className="flex items-center gap-2 truncate pr-2">
+                    <Globe size={16} className="text-slate-400 shrink-0" />
+                    <span className="truncate block">{getSelectedLangNames()}</span>
+                  </div>
+                  {isLangMenuOpen ? <ChevronUp size={16} className="text-slate-400"/> : <ChevronDown size={16} className="text-slate-400"/>}
+              </button>
 
-        {/* Model Selection */}
-        <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">模型選擇</label>
-          <select 
-            value={settings.model}
-            onChange={handleModelChange}
-            disabled={disabled}
-            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-900 dark:text-slate-100"
-          >
-            <option value="gemini-3-pro-preview">Gemini 3.0 Pro (最佳準確度)</option>
-            <option value="gemini-3-flash-preview">Gemini 3.0 Flash (速度優先)</option>
-          </select>
-          {settings.model === 'gemini-3-pro-preview' && (
-              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
-                  * 提示：Pro 模型提供最佳準確度，但處理速度較慢；現時預設已改為更快的 Flash 模型。
-              </p>
-          )}
+              {isLangMenuOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-20 max-h-60 overflow-y-auto animate-fade-in">
+                      {LANGUAGES.map(lang => {
+                          const isSelected = settings.language.includes(lang.id);
+                          const isDisabled = !isSelected && settings.language.length >= 3;
+                          
+                          return (
+                              <div 
+                                key={lang.id}
+                                onClick={() => !isDisabled && toggleLanguage(lang.id)}
+                                className={`px-4 py-2.5 text-sm flex items-center justify-between transition-colors ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                              >
+                                  <div className="flex items-center gap-2">
+                                      <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-300 dark:border-slate-500'}`}>
+                                          {isSelected && <Check size={12} className="text-white" />}
+                                      </div>
+                                      <span className="text-slate-700 dark:text-slate-200">{lang.name}</span>
+                                  </div>
+                              </div>
+                          );
+                      })}
+                  </div>
+              )}
+           </div>
+           <p className="text-xs text-slate-400 mt-1">若音訊包含多種語言 (Mixed)，請勾選所有對應的語言。</p>
         </div>
         
         {/* Start Time Config */}
@@ -135,7 +146,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
               value={settings.startTime}
               onChange={handleStartTimeChange}
               disabled={disabled}
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm font-mono text-slate-900 dark:text-slate-100"
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm font-mono text-slate-900 dark:text-slate-100"
             />
           </div>
           <p className="text-xs text-slate-400 mt-1">用於接續轉錄時，校正該片段的開始時間 (格式: MM:SS)</p>
@@ -152,7 +163,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
              onChange={handleCustomPromptChange}
              disabled={disabled}
              placeholder="輸入特定的指令，例如：'這是一場關於法律的討論，請特別留意專有名詞' 或 '請將 John 識別為 律師'"
-             className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm min-h-[80px] resize-y text-slate-900 dark:text-slate-100 placeholder-slate-400"
+             className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm min-h-[80px] resize-y text-slate-900 dark:text-slate-100"
            />
            <p className="text-xs text-slate-400 mt-1">AI 會根據這些提示調整轉錄風格或關注點。</p>
         </div>
@@ -166,7 +177,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
               checked={settings.enableTimestamps}
               onChange={toggleTimestamps}
               disabled={disabled}
-              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600"
             />
           </label>
 
@@ -177,14 +188,14 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
               checked={settings.enableDiarization}
               onChange={toggleDiarization}
               disabled={disabled}
-              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600"
             />
           </label>
         </div>
 
         {/* Speaker Management */}
         {settings.enableDiarization && (
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">預設說話者名稱 (選填)</label>
             <div className="flex gap-2 mb-3">
               <input 
@@ -194,12 +205,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
                 onChange={(e) => setNewSpeakerName(e.target.value)}
                 disabled={disabled}
                 onKeyDown={(e) => e.key === 'Enter' && addSpeaker()}
-                className="flex-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                className="flex-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
               <button 
                 onClick={addSpeaker}
                 disabled={disabled || !newSpeakerName.trim()}
-                className="p-2 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800 disabled:opacity-50"
+                className="p-2 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/60 disabled:opacity-50"
               >
                 <Plus size={18} />
               </button>
@@ -207,7 +218,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
             
             <div className="space-y-2 max-h-[150px] overflow-y-auto scrollbar-thin">
               {settings.speakers.map((s, idx) => (
-                <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-700 rounded text-sm">
+                <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded text-sm border border-transparent dark:border-slate-700">
                   <span className="text-slate-600 dark:text-slate-300 font-medium">Speaker {idx + 1}: {s.name}</span>
                   <button 
                     onClick={() => removeSpeaker(idx)}

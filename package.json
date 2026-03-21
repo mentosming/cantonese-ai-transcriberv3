@@ -1,5 +1,5 @@
 {
-  "name": "cantonese-ai-transcriber-v3",
+  "name": "cantonese-ai-transcriber",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,19 +9,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@google/genai": "^1.40.0",
-    "firebase": "^12.9.0",
-    "lucide-react": "^0.563.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "@google/genai": "^1.40.0",
+    "lucide-react": "^0.563.0",
+    "firebase": "^12.9.0",
+    "vite": "^7.3.1",
+    "@vitejs/plugin-react": "^5.1.4"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.2.2",
     "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.1.4",
-    "process": "^0.11.10",
-    "tailwindcss": "^4.2.2",
+    "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",
-    "vite": "^7.3.1"
+    "vite": "^6.2.0"
   }
 }
