@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Scissors, AlertTriangle, ArrowUpCircle, Info, Lock, Coffee, Crown, Star, Check } from 'lucide-react';
+import { Scissors, AlertTriangle, ArrowUpCircle, Info, Lock, Crown, Star, Check } from 'lucide-react';
 import Button from './Button';
 
 interface FileSplitterProps {
@@ -108,49 +108,37 @@ const FileSplitter: React.FC<FileSplitterProps> = ({ onSelectSegment, isPro, onR
   return (
     <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden transition-colors h-[400px] flex flex-col">
       
-      {/* Lock Overlay (Rich Promotion) */}
+      {/* Lock Overlay (upgrade promotion) */}
       {!isPro && (
-        <div className="absolute inset-0 z-20 bg-gradient-to-b from-white/95 via-slate-50/95 to-slate-100/95 dark:from-slate-900/95 dark:via-slate-900/95 dark:to-slate-800/95 backdrop-blur-[2px] flex flex-col items-center justify-center text-center p-6 text-slate-800 dark:text-slate-100">
-            
-            {/* Decorative Background Icon */}
-            <div className="absolute top-4 right-4 opacity-10 rotate-12 pointer-events-none">
-                <Crown size={80} className="text-amber-500" />
+        <div className="absolute inset-0 z-20 bg-surface/95 dark:bg-ink-900/95 backdrop-blur-[2px] flex flex-col items-center justify-center text-center p-6 text-ink dark:text-white">
+            <div className="absolute top-4 right-4 opacity-[0.06] rotate-12 pointer-events-none">
+                <Crown size={80} className="text-teal-500" />
             </div>
 
-            <div className="p-3 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-full mb-4 shadow-lg shadow-orange-200 dark:shadow-none scale-110">
-                <Scissors size={28} />
+            <div className="p-3 bg-gradient-to-br from-teal-400 to-teal-600 text-white rounded-2xl mb-4 shadow-[0_8px_20px_-6px_rgba(17,156,137,0.6)]">
+                <Scissors size={26} />
             </div>
-            
-            <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
-                解鎖長檔案分割神器
-                <Star size={16} className="text-amber-400 fill-amber-400" />
+
+            <h3 className="font-display font-bold text-lg mb-2 flex items-center gap-2">
+                解鎖長檔案分割
+                <Star size={15} className="text-teal-400 fill-teal-400" />
             </h3>
-            
-            <p className="text-xs text-slate-600 dark:text-slate-400 mb-6 max-w-[260px] leading-relaxed">
-                錄音太長轉唔到？Pro 版支援<strong>自動智能切割</strong>長錄音 ({'>'} 1小時)，配合無限時長轉錄權限，輕鬆處理大型會議記錄。
+
+            <p className="text-xs text-ink-muted dark:text-paper-muted mb-6 max-w-[260px] leading-relaxed">
+                錄音太長轉唔到？Pro 支援<strong>自動智能切割</strong>長錄音 ({'>'} 1小時)，配合無限時長轉錄，輕鬆處理大型會議。
             </p>
 
-            <div className="flex flex-col gap-3 w-full max-w-[240px]">
-                 <a 
-                    href="https://buymeacoffee.com/cantonese.ai.transcriber" 
-                    target="_blank" 
-                    rel="noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-2.5 bg-[#FFDD00] hover:bg-[#ffea00] active:scale-[0.98] text-slate-900 text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all group"
+            <div className="flex flex-col gap-2.5 w-full max-w-[240px]">
+                 <button
+                    onClick={onRequestUnlock}
+                    className="flex items-center justify-center gap-2 w-full py-2.5 bg-teal-500 hover:bg-teal-600 active:scale-[0.98] text-white text-sm font-semibold rounded-xl shadow-[0_4px_12px_-2px_rgba(17,156,137,0.5)] transition-all"
                  >
-                    <Coffee size={18} className="group-hover:animate-bounce fill-slate-900/10"/>
-                    <span>Buy me a coffee 獲取 Pro</span>
-                 </a>
-                 
-                 <button 
-                    onClick={onRequestUnlock} 
-                    className="flex items-center justify-center gap-2 w-full py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-medium rounded-xl transition-colors"
-                 >
-                    <Lock size={12} />
-                    <span>已有序號？輸入通行碼</span>
+                    <Crown size={16} />
+                    <span>升級方案 / 解鎖 Pro</span>
                  </button>
             </div>
-            
-            <div className="mt-4 flex items-center gap-3 text-[10px] text-slate-400">
+
+            <div className="mt-4 flex items-center gap-3 text-[10px] text-ink-faint dark:text-paper-muted">
                 <span className="flex items-center gap-1"><Check size={10}/> 無限時長</span>
                 <span className="flex items-center gap-1"><Check size={10}/> 智能分割</span>
                 <span className="flex items-center gap-1"><Check size={10}/> 優先處理</span>
@@ -160,7 +148,7 @@ const FileSplitter: React.FC<FileSplitterProps> = ({ onSelectSegment, isPro, onR
 
       {/* Actual Content (Blurred/Disabled visually behind overlay) */}
       <div className={`flex flex-col h-full ${!isPro ? 'opacity-30 blur-[1px]' : ''}`}>
-        <div className="flex items-center gap-2 mb-3 text-amber-600 dark:text-amber-500 shrink-0">
+        <div className="flex items-center gap-2 mb-3 text-teal-600 dark:text-teal-400 shrink-0">
             <Scissors size={20} />
             <h3 className="font-semibold">長檔案分割器</h3>
         </div>
@@ -174,7 +162,7 @@ const FileSplitter: React.FC<FileSplitterProps> = ({ onSelectSegment, isPro, onR
             <input 
                 type="file" 
                 ref={fileInputRef}
-                className="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 dark:file:bg-blue-900/40 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100"
+                className="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-teal-50 dark:file:bg-teal-500/20 file:text-teal-700 dark:file:text-teal-300 hover:file:bg-teal-100"
                 onChange={handleFileChange}
                 disabled={!isPro}
             />
@@ -194,7 +182,7 @@ const FileSplitter: React.FC<FileSplitterProps> = ({ onSelectSegment, isPro, onR
                 value={splitMinutes}
                 onChange={(e) => setSplitMinutes(parseInt(e.target.value))}
                 disabled={!isPro}
-                className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
             />
             </div>
             <Button onClick={handleSplit} disabled={!file || isProcessing || !isPro} className="w-full text-sm">

@@ -22,3 +22,21 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+server/sa-key.json
+server/.env
+
+# Secrets (never commit)
+.env
+.env.local
+**/GoogleService-Info.plist
+
+# Scratch / experiments / mockups
+.playwright-mcp/
+temp-api-repo/
+public/__test_clip.mp4
+editorial-redesign.png
+redesign-final-main.png
+redesign-light-v2.png
+redesign-light-v3.png
+image.png

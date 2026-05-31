@@ -41,9 +41,9 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ transcriptionText }) => {
   return (
     <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-full overflow-hidden transition-colors">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 border-b border-indigo-100 dark:border-indigo-900/30 shrink-0">
-        <div className="flex items-center gap-2 text-indigo-800 dark:text-indigo-300 font-semibold">
-          <Sparkles size={18} className="text-indigo-600 dark:text-indigo-400" />
+      <div className="flex items-center justify-between p-3 bg-teal-50 dark:bg-teal-500/10 border-b border-teal-100 dark:border-teal-500/15 shrink-0">
+        <div className="flex items-center gap-2 text-teal-700 dark:text-teal-300 font-semibold">
+          <Sparkles size={18} className="text-teal-600 dark:text-teal-400" />
           <span>AI 智能摘要 (問答版)</span>
         </div>
         
@@ -53,7 +53,7 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ transcriptionText }) => {
                 <Button 
                     variant="ghost" 
                     onClick={handleCopy} 
-                    className="text-xs h-8 px-2 bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-slate-700"
+                    className="text-xs h-8 px-2 bg-white dark:bg-slate-800 hover:bg-teal-50 dark:hover:bg-slate-700 text-teal-700 dark:text-teal-300 border border-teal-100 dark:border-slate-700"
                 >
                     {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
                     {copied ? "已複製" : "複製內容"}
@@ -74,11 +74,11 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ transcriptionText }) => {
         {isLoading ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 space-y-4">
                 <div className="relative">
-                    <Loader2 size={48} className="animate-spin text-indigo-500 dark:text-indigo-400" />
-                    <Sparkles size={20} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-indigo-300 dark:text-indigo-600" />
+                    <Loader2 size={48} className="animate-spin text-teal-500 dark:text-teal-400" />
+                    <Sparkles size={20} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-teal-300 dark:text-teal-600" />
                 </div>
                 <div className="text-center">
-                    <p className="text-indigo-800 dark:text-indigo-200 font-medium text-lg">AI 正在分析內容...</p>
+                    <p className="text-teal-700 dark:text-teal-100 font-medium text-lg">AI 正在分析內容...</p>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">正在整合背景資訊與關鍵對話 (保留 50% 細節)</p>
                 </div>
             </div>
@@ -90,7 +90,7 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ transcriptionText }) => {
                  <div className="mt-4 flex justify-end">
                     <Button 
                         onClick={handleGenerate} 
-                        className="text-xs h-9 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm dark:bg-indigo-700 dark:hover:bg-indigo-600"
+                        className="text-xs h-9 bg-teal-600 hover:bg-teal-700 text-white shadow-sm dark:bg-teal-700 dark:hover:bg-teal-600"
                     >
                         <Sparkles size={14} className="mr-1" />
                         重新生成摘要
@@ -99,7 +99,7 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ transcriptionText }) => {
             </div>
         ) : (
             <div className="h-full flex flex-col items-center justify-center text-center p-8">
-                <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mb-4 text-indigo-500 dark:text-indigo-400">
+                <div className="w-16 h-16 bg-teal-50 dark:bg-teal-500/15 rounded-full flex items-center justify-center mb-4 text-teal-500 dark:text-teal-400">
                     <FileText size={32} />
                 </div>
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">準備生成詳細摘要</h3>
@@ -110,7 +110,7 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ transcriptionText }) => {
                 <Button 
                     onClick={handleGenerate} 
                     disabled={!transcriptionText}
-                    className="h-12 text-base px-8 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg shadow-indigo-200 dark:shadow-none transition-all hover:scale-105"
+                    className="h-12 text-base px-8 bg-gradient-to-r from-teal-600 to-teal-600 hover:from-teal-700 hover:to-teal-700 text-white shadow-lg shadow-teal-100 dark:shadow-none transition-all hover:scale-105"
                 >
                     <Sparkles size={18} className="mr-2" />
                     立即生成摘要

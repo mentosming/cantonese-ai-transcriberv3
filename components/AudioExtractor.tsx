@@ -2,7 +2,12 @@ import React, { useState, useRef } from 'react';
 import { FileAudio, FileVideo, Download, AlertCircle, Loader2, HardDrive, CheckCircle2, ArrowRight } from 'lucide-react';
 import Button from './Button';
 
-const AudioExtractor: React.FC = () => {
+interface AudioExtractorProps {
+  gated?: boolean;            // true when the user must log in first
+  onRequireLogin?: () => void;
+}
+
+const AudioExtractor: React.FC<AudioExtractorProps> = ({ gated, onRequireLogin }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
@@ -31,6 +36,7 @@ const AudioExtractor: React.FC = () => {
   };
 
   const handleConvert = async () => {
+    if (gated) { onRequireLogin?.(); return; }
     if (!file) return;
     setIsProcessing(true);
     setResultUrl(null);
@@ -105,7 +111,7 @@ const AudioExtractor: React.FC = () => {
 
   return (
     <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
-      <div className="flex items-center gap-2 mb-3 text-purple-600 dark:text-purple-400">
+      <div className="flex items-center gap-2 mb-3 text-teal-600 dark:text-teal-400">
         <HardDrive size={20} />
         <h3 className="font-semibold">本機影音轉檔 (MP3)</h3>
       </div>
@@ -120,14 +126,14 @@ const AudioExtractor: React.FC = () => {
               type="file" 
               accept="video/*,audio/*"
               ref={fileInputRef}
-              className="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-50 dark:file:bg-purple-900/30 file:text-purple-700 dark:file:text-purple-300 hover:file:bg-purple-100 cursor-pointer"
+              className="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-teal-50 dark:file:bg-teal-500/15 file:text-teal-700 dark:file:text-teal-300 hover:file:bg-teal-100 cursor-pointer"
               onChange={handleFileChange}
             />
         </div>
 
         {file && (
              <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded border border-slate-100 dark:border-slate-700">
-                {file.type.startsWith('video') ? <FileVideo size={16} className="text-blue-500"/> : <FileAudio size={16} className="text-purple-500"/>}
+                {file.type.startsWith('video') ? <FileVideo size={16} className="text-teal-500"/> : <FileAudio size={16} className="text-teal-500"/>}
                 <span className="text-xs text-slate-700 dark:text-slate-300 truncate flex-1">{file.name}</span>
                 <span className="text-[10px] text-slate-400">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
              </div>

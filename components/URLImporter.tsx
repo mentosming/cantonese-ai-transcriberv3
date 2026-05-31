@@ -143,11 +143,11 @@ const URLImporter: React.FC<URLImporterProps> = ({ onFileReady, disabled, isPro,
     <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
       {/* 標題列 */}
       <div className="flex items-center gap-2 mb-3">
-        <div className="text-blue-600 dark:text-blue-400">
+        <div className="text-teal-600 dark:text-teal-400">
           <Globe size={20} />
         </div>
         <h3 className="font-semibold text-slate-800 dark:text-slate-100">網絡連結匯入</h3>
-        <span className="px-2 py-0.5 bg-purple-600 text-white text-[10px] font-bold rounded-full">
+        <span className="px-2 py-0.5 bg-teal-600 text-white text-[10px] font-bold rounded-full">
           V5.4 (Download+)
         </span>
       </div>
@@ -169,7 +169,7 @@ const URLImporter: React.FC<URLImporterProps> = ({ onFileReady, disabled, isPro,
             onChange={handleUrlChange}
             placeholder="貼上影片連結 (YouTube, Instagram...)"
             disabled={disabled || isProcessing}
-            className="w-full pl-9 pr-8 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50 transition-colors"
+            className="w-full pl-9 pr-8 py-2 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg focus:ring-2 focus:ring-teal-500 outline-none disabled:opacity-50 transition-colors"
           />
           {url && !isProcessing && (
             <button

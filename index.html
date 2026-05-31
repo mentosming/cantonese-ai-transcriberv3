@@ -6,40 +6,75 @@
     <title>Cantonese AI Transcriber</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
+      // "Modern Light Studio" theme: airy off-white canvas, soft elevated
+      // cards, a fresh teal accent, Manrope + JetBrains Mono. Light + dark.
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
             colors: {
-              slate: {
-                850: '#151e2e', // Custom dark shade
-                950: '#020617',
-              }
-            }
+              // Warm neutral canvas / surfaces / ink
+              canvas: { DEFAULT: '#F5F6F4', sunk: '#EDEFEB' },
+              surface: { DEFAULT: '#FFFFFF', soft: '#FBFCFB' },
+              ink: {
+                DEFAULT: '#16201C', muted: '#5C6B64', faint: '#94A29B',
+                // dark-mode surfaces reuse ink scale
+                950: '#0C1310', 900: '#111A16', 850: '#16211C', 800: '#1D2A24', 700: '#27362F', 600: '#33453C',
+              },
+              line: { DEFAULT: '#E4E7E2', strong: '#D2D7D0' },
+              // Fresh teal accent
+              teal: {
+                50: '#ECFBF7', 100: '#D2F4EC', 300: '#6FD9C6',
+                400: '#34C3AC', 500: '#119C89', 600: '#0C7E70', 700: '#0A6358',
+              },
+              slate: { 850: '#151e2e', 950: '#020617' },
+            },
+            fontFamily: {
+              display: ['Manrope', 'Noto Sans HK', 'system-ui', 'sans-serif'],
+              sans: ['Manrope', 'Noto Sans HK', 'system-ui', 'sans-serif'],
+              mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+            },
+            boxShadow: {
+              card: '0 1px 2px rgba(16,32,28,0.04), 0 4px 16px -4px rgba(16,32,28,0.08)',
+              lift: '0 4px 12px rgba(16,32,28,0.06), 0 16px 40px -12px rgba(16,32,28,0.16)',
+            },
+            borderRadius: { xl2: '1.25rem' },
           }
         }
       }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
+    <!-- Apply theme before first paint to avoid flash-of-light. Defaults to dark. -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('theme') || 'light';
+          if (t === 'dark') document.documentElement.classList.add('dark');
+          var sizes = { normal: '16px', large: '18px', xl: '20px' };
+          document.documentElement.style.fontSize = sizes[localStorage.getItem('fontSize')] || '16px';
+        } catch (e) {}
+      })();
+    </script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+HK:wght@400;500;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+HK:wght@300;400;500;600;700;800;900&family=Noto+Serif+HK:wght@400;600;700;900&display=swap');
+      /* Handwriting font for caption templates — the font binary only downloads when a 手寫 glyph is actually rendered. */
+      @import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-tc-webfont@1.7.0/style.css');
       body {
-        font-family: 'Inter', 'Noto Sans HK', sans-serif;
+        font-family: 'Manrope', 'Noto Sans HK', system-ui, sans-serif;
+        background-color: #F5F6F4;
       }
-      /* Custom Scrollbar for the transcription area */
-      .scrollbar-thin::-webkit-scrollbar {
-        width: 8px;
-      }
-      .scrollbar-thin::-webkit-scrollbar-track {
-        background: transparent;
-      }
+      .dark body { background-color: #0C1310; }
+      .font-display { letter-spacing: -0.02em; }
+      .tnum { font-variant-numeric: tabular-nums; }
+      ::selection { background: #34C3AC; color: #06231E; }
+      /* Custom Scrollbar */
+      .scrollbar-thin::-webkit-scrollbar { width: 8px; }
+      .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
       .scrollbar-thin::-webkit-scrollbar-thumb {
-        background-color: #cbd5e1;
+        background-color: #D2D7D0;
         border-radius: 20px;
       }
-      .dark .scrollbar-thin::-webkit-scrollbar-thumb {
-        background-color: #475569;
-      }
+      .dark .scrollbar-thin::-webkit-scrollbar-thumb { background-color: #27362F; }
       
       /* Smooth transition for theme changes */
       html, body, div, span, applet, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, a, abbr, acronym, address, big, cite, code, del, dfn, em, img, ins, kbd, q, s, samp, small, strike, strong, sub, sup, tt, var, b, u, i, center, dl, dt, dd, ol, ul, li, fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td, article, aside, canvas, details, embed, figure, figcaption, footer, header, hgroup, menu, nav, output, ruby, section, summary, time, mark, audio, video, button, input, textarea {
@@ -65,9 +100,8 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased">
+  <body class="bg-canvas text-ink antialiased">
     <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>

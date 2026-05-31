@@ -1,5 +1,5 @@
 import { auth, db } from "./firebase";
-import { signInWithPopup, GoogleAuthProvider, signOut, User } from "firebase/auth";
+import { signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, User } from "firebase/auth";
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 
 export const ADMIN_EMAIL = "km520daisy@gmail.com";
@@ -42,6 +42,44 @@ export const loginAdminWithGoogle = async (): Promise<User> => {
     // Pass through our custom unauthorized error
     throw new Error(error.message || "登入失敗，請稍後再試。");
   }
+};
+
+// General user login: try popup (nicer UX); if the browser blocks/closes it,
+// fall back to a full-page redirect. Returns the user on popup success, or null
+// when a redirect was started (the page navigates away).
+export const loginWithGoogle = async (): Promise<User | null> => {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  try {
+    const result = await signInWithPopup(auth, provider);
+    return result.user;
+  } catch (error: any) {
+    const code = error?.code || "";
+    if (code === "auth/popup-blocked" || code === "auth/popup-closed-by-user" ||
+        code === "auth/cancelled-popup-request" || code === "auth/operation-not-supported-in-this-environment") {
+      // Popup didn't work — switch to redirect (always allowed).
+      await signInWithRedirect(auth, provider);
+      return null;
+    }
+    if (code === "auth/operation-not-allowed") throw new Error("Google 登入未啟用。");
+    throw new Error(error?.message || "登入失敗，請稍後再試。");
+  }
+};
+
+// Call on app load to complete a redirect sign-in (returns the user if one just
+// signed in, else null). Never throws.
+export const completeRedirectLogin = async (): Promise<User | null> => {
+  try {
+    const res = await getRedirectResult(auth);
+    return res?.user ?? null;
+  } catch (e) {
+    console.warn("getRedirectResult failed:", e);
+    return null;
+  }
+};
+
+export const logoutUser = async () => {
+  await signOut(auth);
 };
 
 export const logoutAdmin = async () => {

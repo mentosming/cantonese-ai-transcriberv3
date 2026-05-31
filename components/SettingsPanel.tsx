@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings2, Plus, Trash2, Clock, Globe, MessageSquarePlus, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Settings2, Plus, Trash2, Clock, Globe, MessageSquarePlus, Check, ChevronDown, ChevronUp, Cpu } from 'lucide-react';
 import { TranscriptionSettings, Speaker } from '../types';
-import { LANGUAGES } from '../constants';
+import { LANGUAGES, MODELS, DEFAULT_MODEL } from '../constants';
 
 interface SettingsPanelProps {
   settings: TranscriptionSettings;
@@ -57,6 +57,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
     onChange({ ...settings, startTime: e.target.value });
   };
 
+  const handleModelChange = (modelId: string) => {
+    if (disabled) return;
+    onChange({ ...settings, model: modelId });
+  };
+
+  const currentModel = settings.model || DEFAULT_MODEL;
+
   const handleCustomPromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     onChange({ ...settings, customPrompt: e.target.value });
   };
@@ -90,6 +97,41 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
       </div>
 
       <div className="space-y-6">
+        {/* Model Selection */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+            <Cpu size={16} className="text-slate-400" />
+            AI 模型
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {MODELS.map(m => {
+              const isSelected = currentModel === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => handleModelChange(m.id)}
+                  disabled={disabled}
+                  className={`text-left p-3 rounded-lg border transition-all ${
+                    isSelected
+                      ? 'bg-teal-50 dark:bg-teal-500/15 border-teal-500 dark:border-teal-400 ring-1 ring-teal-500'
+                      : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                  } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`text-sm font-semibold ${isSelected ? 'text-teal-700 dark:text-teal-300' : 'text-slate-800 dark:text-slate-100'}`}>
+                      {m.name}
+                    </span>
+                    {isSelected && <Check size={14} className="text-teal-600 dark:text-teal-400" />}
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug">{m.description}</p>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-slate-400 mt-1">Pro 較準確但速度較慢、用量較高。</p>
+        </div>
+
         {/* Language Selection (Multi-Select) */}
         <div>
            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
@@ -99,7 +141,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
               <button 
                 type="button"
                 onClick={() => !disabled && setIsLangMenuOpen(!isLangMenuOpen)}
-                className={`w-full pl-3 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-900 dark:text-slate-100 flex items-center justify-between text-left ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                className={`w-full pl-3 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-sm text-slate-900 dark:text-slate-100 flex items-center justify-between text-left ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
               >
                   <div className="flex items-center gap-2 truncate pr-2">
                     <Globe size={16} className="text-slate-400 shrink-0" />
@@ -121,7 +163,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
                                 className={`px-4 py-2.5 text-sm flex items-center justify-between transition-colors ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                               >
                                   <div className="flex items-center gap-2">
-                                      <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-300 dark:border-slate-500'}`}>
+                                      <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-teal-600 border-teal-600' : 'border-slate-300 dark:border-slate-500'}`}>
                                           {isSelected && <Check size={12} className="text-white" />}
                                       </div>
                                       <span className="text-slate-700 dark:text-slate-200">{lang.name}</span>
@@ -146,7 +188,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
               value={settings.startTime}
               onChange={handleStartTimeChange}
               disabled={disabled}
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm font-mono text-slate-900 dark:text-slate-100"
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-sm font-mono text-slate-900 dark:text-slate-100"
             />
           </div>
           <p className="text-xs text-slate-400 mt-1">用於接續轉錄時，校正該片段的開始時間 (格式: MM:SS)</p>
@@ -163,7 +205,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
              onChange={handleCustomPromptChange}
              disabled={disabled}
              placeholder="輸入特定的指令，例如：'這是一場關於法律的討論，請特別留意專有名詞' 或 '請將 John 識別為 律師'"
-             className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm min-h-[80px] resize-y text-slate-900 dark:text-slate-100"
+             className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-sm min-h-[80px] resize-y text-slate-900 dark:text-slate-100"
            />
            <p className="text-xs text-slate-400 mt-1">AI 會根據這些提示調整轉錄風格或關注點。</p>
         </div>
@@ -177,7 +219,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
               checked={settings.enableTimestamps}
               onChange={toggleTimestamps}
               disabled={disabled}
-              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600"
+              className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500 bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600"
             />
           </label>
 
@@ -188,7 +230,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
               checked={settings.enableDiarization}
               onChange={toggleDiarization}
               disabled={disabled}
-              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600"
+              className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500 bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600"
             />
           </label>
         </div>
@@ -205,12 +247,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onChange, disab
                 onChange={(e) => setNewSpeakerName(e.target.value)}
                 disabled={disabled}
                 onKeyDown={(e) => e.key === 'Enter' && addSpeaker()}
-                className="flex-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                className="flex-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
               />
               <button 
                 onClick={addSpeaker}
                 disabled={disabled || !newSpeakerName.trim()}
-                className="p-2 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/60 disabled:opacity-50"
+                className="p-2 bg-teal-100 dark:bg-teal-500/20 text-teal-600 dark:text-teal-400 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-500/30 disabled:opacity-50"
               >
                 <Plus size={18} />
               </button>

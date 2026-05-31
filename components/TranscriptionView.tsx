@@ -443,9 +443,9 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
 
         if (row.type === 'separator') {
             tableRows.push(
-                <tr key={index} className="bg-blue-50 dark:bg-blue-900/30">
+                <tr key={index} className="bg-teal-50 dark:bg-teal-500/15">
                     <td className="w-10 px-2 py-2 text-center border-b border-slate-100 dark:border-slate-700"></td>
-                    <td colSpan={3} className="px-4 py-2 text-xs font-semibold text-blue-600 dark:text-blue-300 text-center border-b border-slate-100 dark:border-slate-700 font-mono">
+                    <td colSpan={3} className="px-4 py-2 text-xs font-semibold text-teal-600 dark:text-teal-300 text-center border-b border-slate-100 dark:border-slate-700 font-mono">
                         {row.content}
                     </td>
                 </tr>
@@ -456,14 +456,14 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
         const isSelected = selectedIndices.has(index);
 
         tableRows.push(
-            <tr key={index} className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-b border-slate-100 dark:border-slate-700 last:border-0 group ${isSelected ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''}`}>
+            <tr key={index} className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-b border-slate-100 dark:border-slate-700 last:border-0 group ${isSelected ? 'bg-teal-50/50 dark:bg-teal-500/10' : ''}`}>
                 <td className="px-2 py-3 align-top w-10 text-center">
                     {!isTranscribing && (
                         <button 
                             onClick={() => toggleSelect(index)}
-                            className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                            className="text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
                         >
-                            {isSelected ? <CheckSquare size={16} className="text-blue-600 dark:text-blue-400"/> : <Square size={16} />}
+                            {isSelected ? <CheckSquare size={16} className="text-teal-600 dark:text-teal-400"/> : <Square size={16} />}
                         </button>
                     )}
                 </td>
@@ -474,7 +474,7 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
                             value={row.time} // Displays Calculated Time
                             disabled={isTranscribing}
                             onChange={(e) => updateRow(index, 'time', e.target.value)}
-                            className="w-full bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-600 focus:border-blue-300 dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 rounded px-1 py-0.5 text-xs font-mono text-slate-500 dark:text-slate-400 outline-none transition-all"
+                            className="w-full bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-600 focus:border-teal-300 dark:focus:border-teal-500 focus:bg-white dark:focus:bg-slate-800 rounded px-1 py-0.5 text-xs font-mono text-slate-500 dark:text-slate-400 outline-none transition-all"
                          />
                      ) : null}
                 </td>
@@ -485,7 +485,7 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
                             value={row.speaker}
                             disabled={isTranscribing}
                             onChange={(e) => updateRow(index, 'speaker', e.target.value)}
-                            className="w-full bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-600 focus:border-blue-300 dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 rounded px-1 py-0.5 text-xs font-bold text-slate-700 dark:text-slate-300 outline-none transition-all"
+                            className="w-full bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-600 focus:border-teal-300 dark:focus:border-teal-500 focus:bg-white dark:focus:bg-slate-800 rounded px-1 py-0.5 text-xs font-bold text-slate-700 dark:text-slate-300 outline-none transition-all"
                         />
                     ) : null}
                 </td>
@@ -501,7 +501,7 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
                             target.style.height = 'auto';
                             target.style.height = `${target.scrollHeight}px`;
                         }}
-                        className="w-full bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-600 focus:border-blue-300 dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 rounded px-1 py-0.5 text-sm text-slate-800 dark:text-slate-200 leading-relaxed outline-none resize-none overflow-hidden transition-all"
+                        className="w-full bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-600 focus:border-teal-300 dark:focus:border-teal-500 focus:bg-white dark:focus:bg-slate-800 rounded px-1 py-0.5 text-sm text-slate-800 dark:text-slate-200 leading-relaxed outline-none resize-none overflow-hidden transition-all"
                     />
                 </td>
             </tr>
@@ -546,7 +546,7 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 rounded-t-xl flex-wrap gap-2 shrink-0">
         <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-semibold">
-          <FileText size={20} className="text-blue-600 dark:text-blue-400" />
+          <FileText size={20} className="text-teal-600 dark:text-teal-400" />
           結果
         </div>
         
@@ -565,13 +565,13 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
            <div className="flex bg-slate-200 dark:bg-slate-700 rounded-lg p-1 mr-2">
               <button 
                 onClick={() => setViewMode('table')}
-                className={`p-1 rounded flex items-center gap-1 text-xs font-medium transition-all ${viewMode === 'table' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                className={`p-1 rounded flex items-center gap-1 text-xs font-medium transition-all ${viewMode === 'table' ? 'bg-white dark:bg-slate-600 text-teal-600 dark:text-teal-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
               >
                 <TableIcon size={14} /> 表格
               </button>
               <button 
                 onClick={() => setViewMode('text')}
-                className={`p-1 rounded flex items-center gap-1 text-xs font-medium transition-all ${viewMode === 'text' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                className={`p-1 rounded flex items-center gap-1 text-xs font-medium transition-all ${viewMode === 'text' ? 'bg-white dark:bg-slate-600 text-teal-600 dark:text-teal-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
               >
                 <AlignLeft size={14} /> 純文字
               </button>
@@ -583,7 +583,7 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
                <Button 
                 variant="ghost" 
                 onClick={onSwitchToSummary} 
-                className="text-xs h-8 px-2 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/30" 
+                className="text-xs h-8 px-2 text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-100 hover:bg-teal-50 dark:hover:bg-teal-500/15" 
                 title="轉至摘要面板"
                >
                  <Sparkles size={14} className="mr-1" /> 前往 AI 摘要 <ArrowRight size={14} className="ml-1"/>
@@ -647,7 +647,7 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
       {/* Footer Status */}
       <div className="p-2 border-t border-slate-100 dark:border-slate-800 text-xs text-center text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-b-xl flex justify-between px-4 shrink-0">
         <span>字數統計: {getProcessedText().length}</span>
-        {viewMode === 'table' && <span className="text-blue-600 dark:text-blue-400 hidden sm:inline">時間戳已自動校正 | 可點擊文字編輯</span>}
+        {viewMode === 'table' && <span className="text-teal-600 dark:text-teal-400 hidden sm:inline">時間戳已自動校正 | 可點擊文字編輯</span>}
       </div>
     </div>
   );

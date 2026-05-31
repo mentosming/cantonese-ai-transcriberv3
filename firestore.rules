@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'km520daisy@gmail.com';
+    }
+
+    // User profiles: own read; client may create own and only DECREASE credits
+    // (spend). Top-ups / subscription changes happen via Admin SDK (webhooks).
+    match /users/{uid} {
+      allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow create: if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.creditMinutes <= resource.data.creditMinutes
+        && request.resource.data.plan == resource.data.plan
+        && request.resource.data.subscriptionStatus == resource.data.subscriptionStatus
+        && (!('isAdmin' in resource.data) || request.resource.data.isAdmin == resource.data.isAdmin);
+    }
+
+    // Usage metadata: read own or admin; any signed-in user may log a job.
+    match /usageLogs/{id} {
+      allow read: if request.auth != null && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if request.auth != null;
+      allow update, delete: if isAdmin();
+    }
+
+    // Full transcripts: read own or admin; owner creates.
+    match /transcripts/{id} {
+      allow read: if request.auth != null && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if request.auth != null;
+      allow update, delete: if isAdmin();
+    }
+
+    // Purchase records: written by webhooks (Admin SDK, bypasses rules);
+    // readable by the buyer or admin. No client writes.
+    match /purchases/{id} {
+      allow read: if request.auth != null && (resource.data.uid == request.auth.uid || isAdmin());
+      allow write: if false;
+    }
+
+    // Legacy license keys: public read (validated by existence), admin write.
+    match /licenses/{key} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

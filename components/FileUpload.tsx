@@ -59,7 +59,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, selectedFile, onC
       <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm transition-colors">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400 shrink-0">
+            <div className="p-2 bg-teal-50 dark:bg-teal-500/15 rounded-lg text-teal-600 dark:text-teal-400 shrink-0">
               {isVideo ? <FileVideo size={24} /> : <FileAudio size={24} />}
             </div>
             <div className="min-w-0">
@@ -103,8 +103,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, selectedFile, onC
       className={`
         w-full h-48 rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all
         ${isDragging 
-          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-          : 'border-slate-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 bg-white dark:bg-slate-900'
+          ? 'border-teal-500 bg-teal-50 dark:bg-teal-500/10' 
+          : 'border-slate-300 dark:border-slate-700 hover:border-teal-400 dark:hover:border-teal-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 bg-white dark:bg-slate-900'
         }
         ${disabled ? 'opacity-50 cursor-not-allowed hover:bg-white dark:hover:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700' : ''}
       `}

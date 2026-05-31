@@ -1,0 +1,17 @@
+{
+  "firestore": {
+    "database": "cantonese-aitranscriber",
+    "location": "nam5",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "auth": {
+    "providers": {
+      "anonymous": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Canto AI",
+        "supportEmail": "km520daisy@gmail.com"
+      }
+    }
+  }
+}

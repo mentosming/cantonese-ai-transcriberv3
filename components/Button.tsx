@@ -13,13 +13,14 @@ const Button: React.FC<ButtonProps> = ({
   disabled, 
   ...props 
 }) => {
-  const baseStyles = "px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed";
-  
+  const baseStyles = "px-4 py-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-transparent disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]";
+
   const variants = {
-    primary: "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500",
-    secondary: "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 focus:ring-slate-400",
-    danger: "bg-red-500 text-white hover:bg-red-600 focus:ring-red-500",
-    ghost: "text-slate-600 hover:bg-slate-100 focus:ring-slate-400"
+    // Teal primary — the signature accent.
+    primary: "bg-teal-500 text-white hover:bg-teal-600 focus:ring-teal-400 shadow-[0_2px_8px_-2px_rgba(17,156,137,0.5)]",
+    secondary: "bg-surface text-ink border border-line-strong hover:border-teal-400 hover:bg-teal-50 focus:ring-teal-300 dark:bg-ink-800 dark:text-white dark:border-ink-600 dark:hover:border-teal-500 dark:hover:bg-ink-700",
+    danger: "bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 focus:ring-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800/60",
+    ghost: "text-ink-muted hover:text-ink hover:bg-canvas-sunk focus:ring-line-strong dark:text-paper-muted dark:hover:bg-ink-800 dark:hover:text-white"
   };
 
   return (
