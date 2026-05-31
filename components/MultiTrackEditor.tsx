@@ -5,8 +5,8 @@ import { MTTrack, MTClip, clipDur, totalDuration, renderMultiTrack, clipAlpha } 
 import { secondsToBillableMinutes, checkEntitlement } from '../services/billingService';
 import { transcribeLongMedia } from '../services/transcribeLong';
 import { transcriptToCues, splitForSubtitles, cuesToSrt, cuesToVtt, cuesToPlainText, Cue } from '../services/srtUtil';
-import { drawCaption, TEMPLATE_STYLES, FONT_OPTIONS, SIZE_OPTIONS, fontStack, CaptionStyle, CaptionPos, CaptionAnim } from '../services/captionRenderer';
-import { designCaptionStyle, designCueAnimations, translateCues, pickMusicForVibe, pickHighlights } from '../services/geminiService';
+import { drawCaption, TEMPLATE_NAMES, TEMPLATE_ORDER, FONT_OPTIONS, SIZE_OPTIONS, fontStack, CaptionStyle, CaptionPos, CaptionAnim } from '../services/captionRenderer';
+import { designCaptionStyle, designCueAnimations, translateCues, pickMusicForVibe, pickHighlights, aiCorrectCues } from '../services/geminiService';
 import { extractForSubtitles } from '../services/extractAudio';
 import { alignCuesToOnsets, alignCharsToEnergy } from '../services/vadAlign';
 import { UserProfile, TranscriptionSettings } from '../types';
@@ -57,17 +57,31 @@ const MultiTrackEditor: React.FC<Props> = ({ isPro, profile, onConsume, onReques
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
-  // Subtitles
-  const [cues, setCues] = useState<Cue[]>([]);
-  const [capTpl, setCapTpl] = useState('classic');
+  // Subtitles — up to 3 stacked layers, each with its own cues + style + position.
+  interface SubLayer { id: string; cues: Cue[]; tpl: string; ov: Partial<CaptionStyle>; bilingual: boolean; }
+  const [layers, setLayers] = useState<SubLayer[]>([{ id: uid(), cues: [], tpl: 'classic', ov: {}, bilingual: false }]);
+  const [activeLayer, setActiveLayer] = useState(0);
+  const al = Math.min(activeLayer, layers.length - 1);
+  // The editing UI operates on the active layer (derived getters + setters).
+  const cues = layers[al]?.cues ?? [];
+  const capTpl = layers[al]?.tpl ?? 'classic';
+  const ov = layers[al]?.ov ?? {};
+  const bilingual = layers[al]?.bilingual ?? false;
+  const patchLayer = (patch: Partial<SubLayer>) => setLayers((prev) => prev.map((l, i) => i === al ? { ...l, ...patch } : l));
+  const setCues: React.Dispatch<React.SetStateAction<Cue[]>> = (u) => setLayers((prev) => prev.map((l, i) => i === al ? { ...l, cues: typeof u === 'function' ? (u as (c: Cue[]) => Cue[])(l.cues) : u } : l));
+  const setCapTpl = (t: string) => patchLayer({ tpl: t });
+  const setOv: React.Dispatch<React.SetStateAction<Partial<CaptionStyle>>> = (u) => setLayers((prev) => prev.map((l, i) => i === al ? { ...l, ov: typeof u === 'function' ? (u as (o: Partial<CaptionStyle>) => Partial<CaptionStyle>)(l.ov) : u } : l));
+  const setOvKey = <K extends keyof CaptionStyle>(k: K, v: CaptionStyle[K]) => setOv((p) => ({ ...p, [k]: v }));
+  const setBilingual = (b: boolean) => patchLayer({ bilingual: b });
+  const addLayer = () => { if (layers.length >= 3) return; const pos = layers.length === 1 ? 'top' : 'middle'; setLayers((prev) => [...prev, { id: uid(), cues: [], tpl: 'classic', ov: { pos: pos as CaptionPos }, bilingual: false }]); setActiveLayer(layers.length); };
+  const removeLayer = (i: number) => { if (layers.length <= 1) return; setLayers((prev) => prev.filter((_, idx) => idx !== i)); setActiveLayer(0); };
   const [capBusy, setCapBusy] = useState(false);
   const [capStatus, setCapStatus] = useState('');
-  const [ov, setOv] = useState<Partial<CaptionStyle>>({});
-  const setOvKey = <K extends keyof CaptionStyle>(k: K, v: CaptionStyle[K]) => setOv((p) => ({ ...p, [k]: v }));
-  const [bilingual, setBilingual] = useState(false);
   const [transLang, setTransLang] = useState('en');
   const [aiBusy, setAiBusy] = useState(false);
   const [aiNote, setAiNote] = useState('');
+  const [glossary, setGlossary] = useState('');
+  const [topTab, setTopTab] = useState('媒體');
   const [aspect, setAspect] = useState<Aspect>('original');
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -185,38 +199,140 @@ const MultiTrackEditor: React.FC<Props> = ({ isPro, profile, onConsume, onReques
   };
 
   // ---- Subtitle AI (ported from the studio) ----
+  // Each AI styling/text action costs a small flat credit (積分 = 分鐘 unit).
+  // Admins are exempt; free-tier users with no balance are gated to unlock.
+  const AI_COST = 1;
+  // Admins and active monthly subscribers use AI styling free of charge.
+  const aiExempt = (): boolean =>
+    !!profile && (profile.isAdmin || (profile.plan === 'monthly' && profile.subscriptionStatus === 'active'));
+  const ensureAICredit = (): boolean => {
+    if (!profile || aiExempt()) return true;
+    const chk = checkEntitlement(profile, AI_COST);
+    if (!chk.allowed) { setError(`AI 功能需 ${AI_COST} 分鐘額度。${chk.message || ''}`); onRequestUnlock(); return false; }
+    return true;
+  };
+  const chargeAI = () => { if (profile && !aiExempt()) onConsume?.(AI_COST); };
+  const aiCostTag = () => (profile && !aiExempt() ? `${aiCostTag()}` : '');
+
   const aiDesign = async () => {
     if (!cues.length) { setError('未有字幕'); return; }
+    if (!ensureAICredit()) return;
     setAiBusy(true); setError(''); setAiNote('');
     try {
       const d = await designCaptionStyle(cues.slice(0, 80).map((c) => c.text).join(' '));
       setCapTpl(d.template);
       setOv({ fontFamily: fontStack(d.fontId), sizeFactor: (SIZE_OPTIONS.find((s) => s.id === d.sizeId) || SIZE_OPTIONS[1]).factor, color: d.color, strokeColor: d.strokeColor, pos: d.pos as CaptionPos, animation: d.animation as CaptionAnim });
-      setAiNote(d.rationale);
+      chargeAI();
+      setAiNote(`${d.rationale}${aiCostTag()}`);
     } catch (e: any) { setError(e?.message || 'AI 設計失敗'); } finally { setAiBusy(false); }
   };
   const aiCueAnim = async () => {
     if (!cues.length) { setError('未有字幕'); return; }
+    if (!ensureAICredit()) return;
     setAiBusy(true); setError('');
     try {
       const arr = await designCueAnimations(cues.map((c) => ({ text: c.text })));
       const byIdx = new Map(arr.map((a) => [a.i, a]));
-      setCues((prev) => prev.map((c, i) => { const m = byIdx.get(i); return m ? { ...c, anim: m.anim, emphasis: m.emph } : { ...c, anim: undefined, emphasis: undefined }; }));
-      setAiNote(`已為 ${arr.length} 句加動畫 / 重點字`);
+      const titleCount = arr.filter((a) => a.title).length;
+      setCues((prev) => prev.map((c, i) => {
+        const m = byIdx.get(i);
+        if (!m) return { ...c, anim: undefined, emphasis: undefined };
+        // Title/金句 → emphasise the WHOLE line so it pops big (突出標題).
+        if (m.title) return { ...c, anim: (m.anim && m.anim !== 'none' ? m.anim : 'zoom'), emphasis: [c.text.trim()] };
+        return { ...c, anim: m.anim, emphasis: m.emph };
+      }));
+      // Make sure emphasis actually enlarges even on a plain template.
+      if (titleCount) setOv((p) => (p.emphScale ? p : { ...p, emphScale: 1.5 }));
+      chargeAI();
+      setAiNote(`已為 ${arr.length} 句加動畫 / 重點字${titleCount ? `，當中 ${titleCount} 句標題放大` : ''}${aiCostTag()}`);
     } catch (e: any) { setError(e?.message || 'AI 動畫失敗'); } finally { setAiBusy(false); }
+  };
+  // One-click, layer-aware: design the dialogue look, then lift title/金句 cues
+  // onto their OWN subtitle layer (big, centred) so they pop without overlapping
+  // the running dialogue at the bottom.
+  const aiAuto = async () => {
+    if (!cues.length) { setError('未有字幕'); return; }
+    if (!ensureAICredit()) return;
+    setAiBusy(true); setError(''); setAiNote('');
+    try {
+      const baseCues = cues;
+      // 1) Overall dialogue style.
+      const d = await designCaptionStyle(baseCues.slice(0, 80).map((c) => c.text).join(' '));
+      const baseOv: Partial<CaptionStyle> = {
+        fontFamily: fontStack(d.fontId),
+        sizeFactor: (SIZE_OPTIONS.find((s) => s.id === d.sizeId) || SIZE_OPTIONS[1]).factor,
+        color: d.color, strokeColor: d.strokeColor, pos: 'bottom', animation: d.animation as CaptionAnim,
+        emphScale: 1.4,
+      };
+      // 2) Per-line animation + emphasis + title flags.
+      const arr = await designCueAnimations(baseCues.map((c) => ({ text: c.text })));
+      const byIdx = new Map(arr.map((a) => [a.i, a]));
+      const titleCues: Cue[] = [];
+      const dialogCues: Cue[] = [];
+      baseCues.forEach((c, i) => {
+        const m = byIdx.get(i);
+        if (m?.title) {
+          titleCues.push({ ...c, anim: (m.anim && m.anim !== 'none' ? m.anim : 'zoom'), emphasis: [c.text.trim()] });
+        } else {
+          dialogCues.push(m ? { ...c, anim: m.anim, emphasis: m.emph } : { ...c, anim: undefined, emphasis: undefined });
+        }
+      });
+
+      // Is there a slot for a dedicated title layer? (an empty non-active layer,
+      // or room to add one — max 3 layers.)
+      const emptyIdx = layers.findIndex((l, i) => i !== al && !l.cues.length);
+      const hasRoom = emptyIdx >= 0 || layers.length < 3;
+      const useTitleLayer = titleCues.length > 0 && hasRoom;
+
+      setLayers((prev) => {
+        // Base/active layer = dialogue. If no room for a title layer, fold titles
+        // back into the dialogue inline (still emphasised + enlarged).
+        const baseFinal = useTitleLayer
+          ? dialogCues
+          : [...dialogCues, ...titleCues].sort((a, b) => a.start - b.start);
+        let next = prev.map((l, i) => (i === al ? { ...l, cues: baseFinal, tpl: d.template, ov: baseOv } : l));
+        if (useTitleLayer) {
+          const titleLayer: SubLayer = { id: uid(), cues: titleCues, tpl: 'titleBig', ov: { pos: 'middle' as CaptionPos }, bilingual: false };
+          if (emptyIdx >= 0) next = next.map((l, i) => (i === emptyIdx ? { ...titleLayer, id: l.id } : l));
+          else next = [...next, titleLayer];
+        }
+        return next;
+      });
+      chargeAI();
+      setAiNote((useTitleLayer
+        ? `已套用風格；${titleCues.length} 句標題已抽去獨立「標題」圖層放大置中`
+        : titleCues.length
+          ? `已套用風格 + ${titleCues.length} 句標題放大（圖層已滿，留喺同層）`
+          : '已套用風格 + 逐句動畫 / 重點字') + `${aiCostTag()}`);
+    } catch (e: any) { setError(e?.message || 'AI 一鍵字幕失敗'); } finally { setAiBusy(false); }
+  };
+  const aiCorrect = async () => {
+    if (!cues.length) { setError('未有字幕'); return; }
+    if (!ensureAICredit()) return;
+    setAiBusy(true); setError('');
+    try {
+      const arr = await aiCorrectCues(cues.map((c) => ({ text: c.text })), glossary);
+      setCues((prev) => prev.map((c, i) => ({ ...c, text: arr[i] || c.text })));
+      chargeAI();
+      setAiNote(`已 AI 校對修正字幕${aiCostTag()}`);
+    } catch (e: any) { setError(e?.message || 'AI 校對失敗'); } finally { setAiBusy(false); }
   };
   const translate = async () => {
     if (!cues.length) { setError('未有字幕'); return; }
+    if (!ensureAICredit()) return;
     setAiBusy(true); setError('');
     try {
       const label = ({ en: 'English', 'zh-Hans': '簡體中文', ja: '日本語', ko: '한국어' } as Record<string, string>)[transLang] || transLang;
       const arr = await translateCues(cues.map((c) => ({ text: c.text })), label);
       setCues((prev) => prev.map((c, i) => ({ ...c, translation: arr[i] || c.translation })));
       setBilingual(true);
+      chargeAI();
+      setAiNote(`已翻譯字幕${aiCostTag()}`);
     } catch (e: any) { setError(e?.message || '翻譯失敗'); } finally { setAiBusy(false); }
   };
   const aiMusic = async () => {
     if (!cues.length) { setError('需要字幕內容判斷氛圍'); return; }
+    if (!ensureAICredit()) return;
     setAiBusy(true); setError('');
     try {
       const lib = await (await fetch(`${API_BASE}/api/music`)).json();
@@ -232,7 +348,8 @@ const MultiTrackEditor: React.FC<Props> = ({ isPro, profile, onConsume, onReques
         next[ai].clips.push({ id: uid(), type: 'audio', url, name: t?.title || 'BGM', in: 0, out: d, start: 0, volume: 0.25 });
         return next;
       });
-      setAiNote(`已加背景音樂：${t?.title || ''} — ${pick.reason}`);
+      chargeAI();
+      setAiNote(`已加背景音樂：${t?.title || ''} — ${pick.reason}${aiCostTag()}`);
     } catch (e: any) { setError(e?.message || 'AI 配樂失敗'); } finally { setAiBusy(false); }
   };
 
@@ -273,8 +390,9 @@ const MultiTrackEditor: React.FC<Props> = ({ isPro, profile, onConsume, onReques
   const [highlights, setHighlights] = useState<{ start: number; end: number; label: string }[]>([]);
   const aiHighlight = async () => {
     if (!cues.length) { setError('需要字幕內容'); return; }
+    if (!ensureAICredit()) return;
     setAiBusy(true); setError('');
-    try { const segs = await pickHighlights(cues, 60); if (!segs.length) { setError('AI 揀唔到精華'); } setHighlights(segs); }
+    try { const segs = await pickHighlights(cues, 60); if (!segs.length) { setError('AI 揀唔到精華'); } else { chargeAI(); setAiNote(`已揀 ${segs.length} 段精華${aiCostTag()}`); } setHighlights(segs); }
     catch (e: any) { setError(e?.message || 'AI 精華失敗'); } finally { setAiBusy(false); }
   };
   // Ripple-keep only the highlight ranges across all tracks + cues; close gaps.
@@ -352,13 +470,13 @@ const MultiTrackEditor: React.FC<Props> = ({ isPro, profile, onConsume, onReques
         ctx.globalAlpha = 1;
       }
     }
-    // Captions
-    if (cues.length) {
-      const cue = cues.find((c) => t >= c.start && t <= c.end);
-      if (cue) drawCaption(ctx, cue.text, capTpl, (t - cue.start) / Math.max(0.1, cue.end - cue.start), dims.W, dims.H,
-        cue.anim ? { ...ov, animation: cue.anim } : ov, cue.emphasis, bilingual ? cue.translation : undefined, cue.charProgress);
+    // Caption layers
+    for (const layer of layers) {
+      const cue = layer.cues.find((c) => t >= c.start && t <= c.end);
+      if (cue) drawCaption(ctx, cue.text, layer.tpl, (t - cue.start) / Math.max(0.1, cue.end - cue.start), dims.W, dims.H,
+        cue.anim ? { ...layer.ov, animation: cue.anim } : layer.ov, cue.emphasis, layer.bilingual ? cue.translation : undefined, cue.charProgress);
     }
-  }, [tracks, dims, cues, capTpl, ov, bilingual]);
+  }, [tracks, dims, layers]);
 
   // Scrub: seek active video elements then draw.
   useEffect(() => {
@@ -461,7 +579,7 @@ const MultiTrackEditor: React.FC<Props> = ({ isPro, profile, onConsume, onReques
     setBusy(true); setError(''); setProgress(0);
     try {
       const r = await renderMultiTrack(tracks, dims.W & ~1, dims.H & ~1, (p) => setProgress(Math.round(p * 100)),
-        cues.length ? { cues, styleId: capTpl, overrides: ov, bilingual } : undefined);
+        layers.filter((l) => l.cues.length).map((l) => ({ cues: l.cues, styleId: l.tpl, overrides: l.ov, bilingual: l.bilingual })));
       const url = URL.createObjectURL(r.blob); const a = document.createElement('a'); a.href = url; a.download = `multitrack_${Date.now()}.${r.ext}`; a.click(); URL.revokeObjectURL(url);
       if (profile && !profile.isAdmin) onConsume?.(mins);
     } catch (e: any) { setError(e?.message || '匯出失敗'); }
@@ -491,6 +609,27 @@ const MultiTrackEditor: React.FC<Props> = ({ isPro, profile, onConsume, onReques
           </Button>
           <button onClick={onClose} className="text-white/50 hover:text-white p-1.5"><X size={18} /></button>
         </div>
+      </div>
+
+      {/* Feature toolbar (guide to where each tool lives) */}
+      <div className="h-11 shrink-0 border-b border-white/10 bg-black/20 flex items-center gap-1 px-3 overflow-x-auto">
+        {([
+          ['媒體', Film, '左邊媒體庫：匯入影片/相片/音訊，撳一下加落軌'],
+          ['字幕', Sparkles, '右邊：生成字幕（選中/全部）、AI 校對、逐句編輯、模板'],
+          ['效果', Sparkles, '右邊「字幕外觀」：字體/大小/顏色/動畫、AI 設計、逐句動畫'],
+          ['音訊', Music, '左邊匯入音訊 / 右邊 AI 配樂 + 音樂庫；時間線音訊軌'],
+          ['比例', Square, '右邊「畫面比例」：原片 / 9:16 / 1:1 / 16:9'],
+          ['剪輯', Scissors, '下方時間線：拖放、修剪、分割、速度、轉場、PiP'],
+        ] as [string, any, string][]).map(([id, Icon, hint]) => (
+          <button key={id} onClick={() => setTopTab(id)}
+            className={`flex flex-col items-center justify-center gap-0.5 px-3 h-full text-[10px] shrink-0 border-b-2 transition-colors ${topTab === id ? 'border-teal-400 text-teal-300' : 'border-transparent text-white/50 hover:text-white'}`}
+            title={hint}>
+            <Icon size={15} /> {id}
+          </button>
+        ))}
+        <span className="ml-2 text-[10px] text-white/35 truncate hidden lg:block">
+          {({ 媒體: '左邊匯入素材 → 加落軌', 字幕: '右邊生成 / AI 校對 / 編輯字幕', 效果: '右邊調字幕外觀 + AI 動畫', 音訊: 'AI 配樂 / 音樂庫 / 音訊軌', 比例: '右邊揀畫面比例', 剪輯: '下方時間線剪片' } as Record<string, string>)[topTab]}
+        </span>
       </div>
 
       <div className="flex-1 min-h-0 flex">
@@ -547,6 +686,18 @@ const MultiTrackEditor: React.FC<Props> = ({ isPro, profile, onConsume, onReques
           {/* Subtitles */}
           <div>
             <div className="text-[11px] text-white/40 uppercase tracking-wider mb-2 flex items-center justify-between">字幕 <span className="text-white/30">{cues.length} 句</span></div>
+            {/* Subtitle layer selector (up to 3) */}
+            <div className="flex items-center gap-1 mb-2">
+              {layers.map((l, i) => (
+                <button key={l.id} onClick={() => setActiveLayer(i)}
+                  className={`group relative px-2 py-1 rounded text-[11px] flex items-center gap-1 ${i === al ? 'bg-teal-500/30 text-teal-200 ring-1 ring-teal-400/50' : 'bg-white/5 text-white/50 hover:text-white'}`}>
+                  圖層{i + 1}{l.cues.length ? <span className="text-[9px] text-white/40">·{l.cues.length}</span> : ''}
+                  {layers.length > 1 && <span onClick={(e) => { e.stopPropagation(); removeLayer(i); }} className="text-white/30 hover:text-red-400">×</span>}
+                </button>
+              ))}
+              {layers.length < 3 && <button onClick={addLayer} title="加字幕圖層" className="px-1.5 py-1 rounded bg-white/5 text-white/50 hover:text-teal-300"><Plus size={12} /></button>}
+            </div>
+            <p className="text-[10px] text-white/30 mb-2">每層可獨立內容/模板/位置（建議設唔同位置：上/中/下）避免重疊。</p>
             <button onClick={generateCaptions} disabled={capBusy}
               className="w-full h-9 rounded-lg bg-gradient-to-r from-teal-500 to-teal-600 hover:opacity-90 text-white text-xs font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50">
               {capBusy ? <><Loader2 size={14} className="animate-spin" /> {capStatus || '生成中…'}</> : (selected && tracks.flatMap((t) => t.clips).some((c) => c.id === selected && c.type === 'video') ? '由選中片段生成字幕' : '由首段影片生成字幕')}
@@ -564,8 +715,17 @@ const MultiTrackEditor: React.FC<Props> = ({ isPro, profile, onConsume, onReques
               <div className="mt-3 space-y-3">
                 {/* AI */}
                 <div className="space-y-1.5">
-                  <button onClick={aiDesign} disabled={aiBusy} className="w-full h-8 rounded-lg bg-gradient-to-r from-fuchsia-500 to-teal-500 hover:opacity-90 text-white text-[11px] font-semibold flex items-center justify-center gap-1 disabled:opacity-50">{aiBusy ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} AI 設計整體風格</button>
-                  <button onClick={aiCueAnim} disabled={aiBusy} className="w-full h-8 rounded-lg border border-fuchsia-400/40 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 text-fuchsia-200 text-[11px] font-semibold flex items-center justify-center gap-1 disabled:opacity-50"><Sparkles size={12} /> AI 逐句動畫 + 重點字</button>
+                  <button onClick={aiAuto} disabled={aiBusy} className="w-full h-9 rounded-lg bg-gradient-to-r from-amber-400 via-fuchsia-500 to-teal-500 hover:opacity-90 text-white text-[12px] font-bold flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-lg shadow-fuchsia-500/20">{aiBusy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} AI 一鍵字幕（風格＋突出標題）{profile && !aiExempt() && <span className="text-[10px] font-normal opacity-80">· {AI_COST}分</span>}</button>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button onClick={aiDesign} disabled={aiBusy} className="h-8 rounded-lg bg-white/5 border border-white/10 hover:border-fuchsia-400/50 text-white/70 text-[11px] font-semibold flex items-center justify-center gap-1 disabled:opacity-50"><Sparkles size={11} /> 只設計風格</button>
+                    <button onClick={aiCueAnim} disabled={aiBusy} className="h-8 rounded-lg bg-white/5 border border-white/10 hover:border-fuchsia-400/50 text-white/70 text-[11px] font-semibold flex items-center justify-center gap-1 disabled:opacity-50"><Sparkles size={11} /> 只逐句動畫</button>
+                  </div>
+                  {/* AI proofread / correction */}
+                  <div className="rounded-lg border border-white/10 p-1.5 space-y-1">
+                    <input value={glossary} onChange={(e) => setGlossary(e.target.value)} placeholder="正確人名/專名（例：何Sir、陳大文）"
+                      className="w-full bg-black/30 border border-white/10 rounded px-1.5 py-1 text-white text-[11px] placeholder:text-white/30" />
+                    <button onClick={aiCorrect} disabled={aiBusy} className="w-full h-7 rounded bg-amber-500/80 hover:bg-amber-500 text-white text-[11px] font-semibold flex items-center justify-center gap-1 disabled:opacity-50"><Sparkles size={11} /> AI 一鍵校對修正</button>
+                  </div>
                   <div className="flex items-center gap-1">
                     <select value={transLang} onChange={(e) => setTransLang(e.target.value)} className="flex-1 bg-black/30 border border-white/10 rounded px-1.5 py-1 text-white text-[11px]">
                       {[['en', 'English'], ['zh-Hans', '簡體中文'], ['ja', '日本語'], ['ko', '한국어']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -601,10 +761,10 @@ const MultiTrackEditor: React.FC<Props> = ({ isPro, profile, onConsume, onReques
 
                 {/* Template */}
                 <div>
-                  <div className="text-[10px] text-white/45 mb-1">模板</div>
-                  <div className="grid grid-cols-1 gap-1">
-                    {Object.keys(TEMPLATE_STYLES).map((id) => (
-                      <button key={id} onClick={() => setCapTpl(id)} className={`px-2 py-1 rounded border text-[11px] text-left ${capTpl === id ? 'border-teal-500 bg-teal-500/15 text-teal-200' : 'border-white/10 text-white/60 hover:border-teal-500/50'}`}>{({ classic: '經典白字', news: '新聞黃字', cinema: '電影置中', tiktok: 'TikTok 大字', karaoke: 'Karaoke 逐字' } as Record<string, string>)[id] || id}</button>
+                  <div className="text-[10px] text-white/45 mb-1">模板 <span className="text-white/25">({TEMPLATE_ORDER.length} 款)</span></div>
+                  <div className="grid grid-cols-2 gap-1">
+                    {TEMPLATE_ORDER.map((id) => (
+                      <button key={id} onClick={() => setCapTpl(id)} className={`px-2 py-1 rounded border text-[11px] text-center truncate ${capTpl === id ? 'border-teal-500 bg-teal-500/15 text-teal-200' : 'border-white/10 text-white/60 hover:border-teal-500/50'}`}>{TEMPLATE_NAMES[id] || id}</button>
                     ))}
                   </div>
                 </div>
@@ -615,7 +775,7 @@ const MultiTrackEditor: React.FC<Props> = ({ isPro, profile, onConsume, onReques
                   <div className="grid grid-cols-2 gap-1">{FONT_OPTIONS.map((f) => <button key={f.id} onClick={() => setOvKey('fontFamily', f.stack)} style={{ fontFamily: f.stack }} className={`px-1 py-1 rounded border text-[11px] ${ov.fontFamily === f.stack ? 'border-teal-500 bg-teal-500/15 text-teal-200' : 'border-white/10 text-white/60'}`}>{f.name}</button>)}</div>
                   <div className="grid grid-cols-4 gap-1">{SIZE_OPTIONS.map((s) => <button key={s.id} onClick={() => setOvKey('sizeFactor', s.factor)} className={`py-1 rounded border text-[11px] ${ov.sizeFactor === s.factor ? 'border-teal-500 bg-teal-500/15 text-teal-200' : 'border-white/10 text-white/60'}`}>{s.name}</button>)}</div>
                   <div className="grid grid-cols-3 gap-1">{([['top', '上'], ['middle', '中'], ['bottom', '下']] as [CaptionPos, string][]).map(([p, l]) => <button key={p} onClick={() => setOvKey('pos', p)} className={`py-1 rounded border text-[11px] ${ov.pos === p ? 'border-teal-500 bg-teal-500/15 text-teal-200' : 'border-white/10 text-white/60'}`}>{l}</button>)}</div>
-                  <div className="grid grid-cols-4 gap-1">{([['none', '無'], ['fade', '淡入'], ['pop', '彈出'], ['slide', '上移']] as [CaptionAnim, string][]).map(([a, l]) => <button key={a} onClick={() => setOvKey('animation', a)} className={`py-1 rounded border text-[11px] ${ov.animation === a ? 'border-teal-500 bg-teal-500/15 text-teal-200' : 'border-white/10 text-white/60'}`}>{l}</button>)}</div>
+                  <div className="grid grid-cols-4 gap-1">{([['none', '無'], ['fade', '淡入'], ['pop', '彈出'], ['slide', '上移'], ['zoom', '放大'], ['bounce', '彈跳'], ['drop', '掉落'], ['rise', '升起']] as [CaptionAnim, string][]).map(([a, l]) => <button key={a} onClick={() => setOvKey('animation', a)} className={`py-1 rounded border text-[11px] ${ov.animation === a ? 'border-teal-500 bg-teal-500/15 text-teal-200' : 'border-white/10 text-white/60'}`}>{l}</button>)}</div>
                   <div className="grid grid-cols-2 gap-2">
                     <label className="text-[10px] text-white/45 flex items-center justify-between">文字<input type="color" value={(ov.color as string) || '#FFFFFF'} onChange={(e) => setOvKey('color', e.target.value)} className="w-7 h-6 rounded bg-transparent border border-white/10" /></label>
                     <label className="text-[10px] text-white/45 flex items-center justify-between">描邊<input type="color" value={(ov.strokeColor as string)?.startsWith('#') ? (ov.strokeColor as string) : '#000000'} onChange={(e) => setOvKey('strokeColor', e.target.value)} className="w-7 h-6 rounded bg-transparent border border-white/10" /></label>

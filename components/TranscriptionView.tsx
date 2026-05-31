@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Copy, Download, FileText, Check, FileSpreadsheet, Trash2, Table as TableIcon, AlignLeft, CheckSquare, Square, Sparkles, ArrowRight, Upload, Captions } from 'lucide-react';
 import Button from './Button';
+import { aiCorrectCues } from '../services/geminiService';
 
 interface TranscriptionViewProps {
   text: string;
@@ -61,6 +62,23 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'text'>('table');
+  const [correcting, setCorrecting] = useState(false);
+
+  // AI proofread: fix recurring errors (homophones / names) keeping timestamps.
+  const handleAiCorrect = async () => {
+    if (!onUpdate || !text.trim() || correcting) return;
+    const gloss = window.prompt('AI 校對：輸入正確人名／專名（例：何Sir、陳大文），可留空', '') ?? undefined;
+    setCorrecting(true);
+    try {
+      const lines = text.split('\n');
+      const re = /^(\s*\[[^\]]*\]\s*)?(.*)$/;
+      const parsed = lines.map((l) => { const m = l.match(re); return { prefix: m?.[1] || '', body: m?.[2] ?? l }; });
+      const nonEmpty = parsed.map((p, i) => ({ p, i })).filter((x) => x.p.body.trim());
+      const arr = await aiCorrectCues(nonEmpty.map((x) => ({ text: x.p.body })), gloss || undefined);
+      nonEmpty.forEach((x, k) => { parsed[x.i].body = arr[k] || x.p.body; });
+      onUpdate(parsed.map((p) => p.prefix + p.body).join('\n'));
+    } catch (e) { /* ignore */ } finally { setCorrecting(false); }
+  };
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
 
   // Parse text into rows and apply timestamp offsets dynamically
@@ -579,10 +597,18 @@ const TranscriptionView: React.FC<TranscriptionViewProps> = ({ text, status, onC
            
            <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
            
+           {onUpdate && (
+               <Button variant="ghost" onClick={handleAiCorrect} disabled={correcting || !text.trim()}
+                className="text-xs h-8 px-2 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/15"
+                title="AI 一鍵校對：修正同音字/人名（例：賀Sir→何Sir）">
+                 <Sparkles size={14} className="mr-1" /> {correcting ? '校對中…' : 'AI 校對'}
+               </Button>
+           )}
+
            {onSwitchToSummary && (
-               <Button 
-                variant="ghost" 
-                onClick={onSwitchToSummary} 
+               <Button
+                variant="ghost"
+                onClick={onSwitchToSummary}
                 className="text-xs h-8 px-2 text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-100 hover:bg-teal-50 dark:hover:bg-teal-500/15" 
                 title="轉至摘要面板"
                >

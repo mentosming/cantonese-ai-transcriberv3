@@ -83,11 +83,12 @@ export const renderMultiTrack = async (
   W: number,
   H: number,
   onProgress: (p: number) => void,
-  captions?: MTCaptions,
+  captionLayers?: MTCaptions[],   // up to a few stacked subtitle layers
 ): Promise<{ blob: Blob; ext: string }> => {
   const total = totalDuration(tracks);
   if (total <= 0) throw new Error("時間線冇片段");
-  if (captions?.cues.length) await loadCaptionFonts();
+  const layers = (captionLayers || []).filter((l) => l.cues.length);
+  if (layers.length) await loadCaptionFonts();
 
   const canvas = document.createElement("canvas");
   canvas.width = W; canvas.height = H;
@@ -170,11 +171,11 @@ export const renderMultiTrack = async (
         }
       }
 
-      // Captions on top.
-      if (captions?.cues.length) {
-        const cue = captions.cues.find((c) => t >= c.start && t <= c.end);
-        if (cue) drawCaption(ctx, cue.text, captions.styleId, (t - cue.start) / Math.max(0.1, cue.end - cue.start), W, H,
-          cue.anim ? { ...captions.overrides, animation: cue.anim } : captions.overrides, cue.emphasis, captions.bilingual ? cue.translation : undefined, cue.charProgress);
+      // Caption layers on top (each its own style/position).
+      for (const layer of layers) {
+        const cue = layer.cues.find((c) => t >= c.start && t <= c.end);
+        if (cue) drawCaption(ctx, cue.text, layer.styleId, (t - cue.start) / Math.max(0.1, cue.end - cue.start), W, H,
+          cue.anim ? { ...layer.overrides, animation: cue.anim } : layer.overrides, cue.emphasis, layer.bilingual ? cue.translation : undefined, cue.charProgress);
       }
 
       onProgress(Math.min(0.99, t / total));

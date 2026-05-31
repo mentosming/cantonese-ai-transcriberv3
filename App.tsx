@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, AlertCircle, PlayCircle, StopCircle, CheckCircle2, Loader2, UploadCloud, FileText, Sparkles, BookOpen, ChevronUp, ChevronDown, Lock, UserCog, Unlock, Crown, X, Chrome, ArrowRight, ShieldCheck, Zap, Coins, History, Film, Clapperboard } from 'lucide-react';
+import { Logo, LogoMark } from './components/Logo';
 import FileUpload from './components/FileUpload';
 import VoiceRecorder from './components/VoiceRecorder';
 import LinkTranscribe from './components/LinkTranscribe';
@@ -491,7 +492,7 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-surface dark:bg-ink-900 border border-line dark:border-ink-700 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
             <div className="p-6 text-center">
-              <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white"><Mic size={22} /></div>
+              <LogoMark size={52} className="mx-auto mb-4 rounded-[15px] shadow-[0_8px_20px_-6px_rgba(17,156,137,0.55)]" radius={15} />
               <h3 className="font-display font-bold text-lg text-ink dark:text-white mb-1">登入以開始使用</h3>
               <p className="text-sm text-ink-muted dark:text-paper-muted mb-5">新用戶登入即送 <strong className="text-teal-600 dark:text-teal-400">5 分鐘</strong> 免費額度（轉錄 + 字幕工作室共用）。</p>
               <Button onClick={handleUserLogin} isLoading={loginLoading} className="w-full h-11"><Chrome size={18} className="mr-2" /> 使用 Google 登入</Button>
@@ -546,18 +547,11 @@ const App: React.FC = () => {
       {/* Navbar */}
       <header className="bg-surface/85 dark:bg-ink-900/85 backdrop-blur-md border-b border-line dark:border-ink-700/70 shrink-0 z-40 relative">
         <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white bg-gradient-to-br from-teal-400 to-teal-600 shadow-[0_4px_12px_-2px_rgba(17,156,137,0.5)]">
-              <Mic size={18} />
-            </div>
-            <div>
-              <h1 className="font-display font-extrabold text-[19px] leading-none text-ink dark:text-white flex items-center gap-2 tracking-tight">
-                Canto AI
-                {isPro && <span className="px-1.5 py-0.5 bg-teal-100 dark:bg-teal-500/20 text-teal-700 dark:text-teal-300 text-[9px] font-bold tracking-wider rounded-md">PRO</span>}
-              </h1>
-              <p className="text-[11px] text-ink-muted dark:text-paper-muted mt-0.5">廣東話語音轉文字</p>
-            </div>
-          </div>
+          <Logo
+            size={38}
+            subtitle="廣東話語音轉文字"
+            badge={isPro && <span className="px-1.5 py-0.5 bg-teal-100 dark:bg-teal-500/20 text-teal-700 dark:text-teal-300 text-[9px] font-bold tracking-wider rounded-md">PRO</span>}
+          />
           <div className="flex items-center gap-2">
              {/* Plan / Credit badge */}
              {profile?.isAdmin ? (

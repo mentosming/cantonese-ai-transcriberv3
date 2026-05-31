@@ -98,27 +98,51 @@ export const cuesToPlainText = (cues: Cue[], bilingual = false): string =>
     .map((c) => (bilingual && c.translation ? `${c.text}\n${c.translation}` : c.text))
     .join('\n');
 
-// Split long cues into short, one-line subtitle cues. Breaks on punctuation,
-// then by max length, distributing each cue's time proportionally to text.
-export const splitForSubtitles = (cues: Cue[], maxChars = 16): Cue[] => {
+// Split long cues into short subtitle cues. Subtitle style: NO punctuation —
+// clause/sentence marks become spaces, then we pack ~10–15 chars per cue,
+// breaking at a space when one falls in range. Time is split proportionally.
+const SUB_MIN = 10;
+const SUB_MAX = 15;
+// Strip punctuation → space (CJK + latin). Keep letters/digits/CJK + spaces.
+const punctToSpace = (s: string): string =>
+  s.replace(/[。．！!？?，,、；;：:…⋯·•「」『』（）()【】《》〈〉“”"'’．\/\\|~～\-—_]+/g, ' ')
+   .replace(/\s+/g, ' ')
+   .trim();
+
+// Pack a (punctuation-free) string into pieces of SUB_MIN..SUB_MAX chars,
+// preferring to break at an existing space once past the minimum.
+const packChars = (text: string, max = SUB_MAX): string[] => {
+  const pieces: string[] = [];
+  let i = 0;
+  const n = text.length;
+  while (i < n) {
+    let end = Math.min(i + max, n);
+    if (end < n) {
+      // Prefer a space break inside [i+SUB_MIN, end].
+      const sub = text.slice(i, end);
+      const sp = sub.lastIndexOf(' ');
+      if (sp >= SUB_MIN) end = i + sp;
+    }
+    const piece = text.slice(i, end).trim();
+    if (piece) pieces.push(piece);
+    i = end;
+    while (i < n && text[i] === ' ') i++;
+  }
+  return pieces;
+};
+
+export const splitForSubtitles = (cues: Cue[], maxChars = SUB_MAX): Cue[] => {
   const out: Cue[] = [];
   for (const c of cues) {
-    const text = (c.text || '').trim();
-    if (!text) continue;
+    const raw = (c.text || '').trim();
+    if (!raw) continue;
     // Skip non-speech markers like [Silence] / [Music] / [靜音] / [音樂].
-    if (/^\[[^\]]*\]$/.test(text)) continue;
+    if (/^\[[^\]]*\]$/.test(raw)) continue;
     const dur = Math.max(0.3, c.end - c.start);
 
-    const pieces: string[] = [];
-    // Split after sentence/clause punctuation (CJK + latin), keep the mark.
-    const parts = text.split(/(?<=[。！？!?，,；;、…])\s*/);
-    for (let part of parts) {
-      part = part.trim();
-      if (!part) continue;
-      if (part.length <= maxChars) { pieces.push(part); continue; }
-      // Hard-wrap anything still too long.
-      for (let i = 0; i < part.length; i += maxChars) pieces.push(part.slice(i, i + maxChars).trim());
-    }
+    const text = punctToSpace(raw);
+    if (!text) continue;
+    const pieces = packChars(text, maxChars);
     if (!pieces.length) pieces.push(text);
 
     const totalLen = pieces.reduce((a, p) => a + p.length, 0) || 1;

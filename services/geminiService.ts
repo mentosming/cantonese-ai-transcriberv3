@@ -183,13 +183,13 @@ ${list}`;
 };
 
 export interface AiCaptionDesign {
-  template: 'classic' | 'news' | 'cinema' | 'tiktok' | 'karaoke';
+  template: 'classic' | 'news' | 'cinema' | 'tiktok' | 'karaoke' | 'bigword' | 'titleBig' | 'boxed' | 'neon' | 'popYellow';
   fontId: 'sans' | 'serif' | 'round' | 'hand';
   sizeId: 's' | 'm' | 'l' | 'xl';
   color: string;
   strokeColor: string;
   pos: 'top' | 'middle' | 'bottom';
-  animation: 'none' | 'fade' | 'pop' | 'slide';
+  animation: 'none' | 'fade' | 'pop' | 'slide' | 'zoom' | 'bounce' | 'drop' | 'rise';
   rationale: string;
 }
 
@@ -201,16 +201,16 @@ export const designCaptionStyle = async (sampleText: string): Promise<AiCaptionD
   const prompt = `你係專業影片字幕設計師。以下係影片字幕內容。請根據內容嘅**題材、語氣、節奏**，設計一套最襯嘅字幕風格。
 **只可以回覆 JSON**（唔好 markdown、唔好其他文字），格式同可選值如下：
 {
-  "template": "classic|news|cinema|tiktok|karaoke",
+  "template": "classic|news|cinema|tiktok|karaoke|bigword|titleBig|boxed|neon|popYellow",
   "fontId": "sans(黑體)|serif(宋體)|round(圓體)|hand(手寫)",
   "sizeId": "s|m|l|xl",
   "color": "#RRGGBB 文字顏色",
   "strokeColor": "#RRGGBB 描邊顏色",
   "pos": "top|middle|bottom",
-  "animation": "none|fade(淡入)|pop(彈出)|slide(上移)",
+  "animation": "none|fade(淡入)|pop(彈出)|slide(上移)|zoom(放大)|bounce(彈跳)|drop(掉落)|rise(升起)",
   "rationale": "一句中文解釋點解咁設計"
 }
-設計原則：娛樂/Vlog 用 tiktok/karaoke + 彈出/手寫 + 鮮色；新聞/正式用 news/classic + 黑體 + 底部；電影/感性用 cinema + 宋體 + 淡入。文字同描邊要夠對比、易睇。
+設計原則：娛樂/Vlog 用 tiktok/karaoke/popYellow + 彈出/放大/彈跳 + 鮮色；要突出標題/關鍵字用 bigword 或 titleBig；新聞/正式用 news/boxed/classic + 黑體 + 底部；電影/感性用 cinema + 宋體 + 淡入；潮流/夜店用 neon。文字同描邊要夠對比、易睇。
 字幕內容：
 ${sample}`;
 
@@ -221,13 +221,13 @@ ${sample}`;
     const pick = <T extends string>(v: any, allow: readonly T[], def: T): T => (allow.includes(v) ? v : def);
     const hex = (v: any, def: string) => (/^#[0-9a-fA-F]{6}$/.test(v) ? v : def);
     return {
-      template: pick(d.template, ['classic', 'news', 'cinema', 'tiktok', 'karaoke'] as const, 'classic'),
+      template: pick(d.template, ['classic', 'news', 'cinema', 'tiktok', 'karaoke', 'bigword', 'titleBig', 'boxed', 'neon', 'popYellow'] as const, 'classic'),
       fontId: pick(d.fontId, ['sans', 'serif', 'round', 'hand'] as const, 'sans'),
       sizeId: pick(d.sizeId, ['s', 'm', 'l', 'xl'] as const, 'm'),
       color: hex(d.color, '#FFFFFF'),
       strokeColor: hex(d.strokeColor, '#000000'),
       pos: pick(d.pos, ['top', 'middle', 'bottom'] as const, 'bottom'),
-      animation: pick(d.animation, ['none', 'fade', 'pop', 'slide'] as const, 'fade'),
+      animation: pick(d.animation, ['none', 'fade', 'pop', 'slide', 'zoom', 'bounce', 'drop', 'rise'] as const, 'fade'),
       rationale: String(d.rationale || '已根據內容調整字幕風格'),
     };
   } catch {
@@ -235,7 +235,7 @@ ${sample}`;
   }
 };
 
-export interface CueAnimation { i: number; anim: 'none' | 'fade' | 'pop' | 'slide'; emph: string[]; }
+export interface CueAnimation { i: number; anim: 'none' | 'fade' | 'pop' | 'slide' | 'zoom' | 'bounce' | 'drop' | 'rise'; emph: string[]; title?: boolean; }
 
 // One AI call: assign a per-line entrance animation and key emphasis words.
 // Sends only the cue text (no timestamps) and asks for a SPARSE result —
@@ -245,10 +245,11 @@ export const designCueAnimations = async (cues: { text: string }[]): Promise<Cue
   const list = slice.map((c, i) => `${i}|${c.text}`).join('\n').slice(0, 12000);
   const prompt = `你係短影片字幕動畫師。下面每行格式 \`索引|字幕\`。
 請揀出**值得加強嘅句子**，為佢哋設計入場動畫，並標出該句最多 2 個**重點詞**（必須係該句原文出現嘅字詞）。
+另外，如果某句本身係**標題 / 金句 / 主題句**（簡短、有力、適合放大成大標題），就將 "title" 設為 true。
 平淡、過渡嘅句子可以唔使理（唔好全部都加）。
 **只回覆 JSON 陣列**（唔好 markdown、唔好其他字），格式：
-[{"i": 索引number, "anim": "none|fade|pop|slide", "emph": ["重點詞", ...]}]
-動畫指引：重點/興奮用 pop；柔和/感性用 fade；列點/連續用 slide；一般 none。
+[{"i": 索引number, "anim": "none|fade|pop|slide|zoom|bounce|drop|rise", "emph": ["重點詞", ...], "title": true/false}]
+動畫指引：標題/震撼用 zoom 或 bounce；重點/興奮用 pop；柔和/感性用 fade；列點/連續用 slide；由上掉落用 drop；由下升起用 rise；一般 none。
 字幕：
 ${list}`;
 
@@ -256,12 +257,13 @@ ${list}`;
   try {
     const jsonStr = raw.slice(raw.indexOf('['), raw.lastIndexOf(']') + 1);
     const arr = JSON.parse(jsonStr);
-    const anims = ['none', 'fade', 'pop', 'slide'];
+    const anims = ['none', 'fade', 'pop', 'slide', 'zoom', 'bounce', 'drop', 'rise'];
     return (Array.isArray(arr) ? arr : [])
       .map((d: any) => ({
         i: Number(d.i),
         anim: (anims.includes(d.anim) ? d.anim : 'pop') as CueAnimation['anim'],
         emph: Array.isArray(d.emph) ? d.emph.map((x: any) => String(x)).filter(Boolean).slice(0, 2) : [],
+        title: !!d.title,
       }))
       .filter((d: CueAnimation) => Number.isInteger(d.i) && d.i >= 0 && d.i < slice.length);
   } catch {
@@ -291,6 +293,30 @@ ${sampleText.slice(0, 1500)}`;
   } catch {
     throw new Error('AI 配樂解析失敗，請重試。');
   }
+};
+
+// AI proofread: fix recurring transcription errors (homophones, names, typos,
+// punctuation) across lines. Optional glossary of correct proper nouns makes
+// fixes reliable (e.g. 何Sir wrongly heard as 賀Sir everywhere). Order-preserving.
+export const aiCorrectCues = async (items: { text: string }[], glossary?: string): Promise<string[]> => {
+  const out = items.map((i) => i.text);
+  const CHUNK = 80;
+  const gloss = glossary?.trim() ? `\n以下係正確嘅人名／專有名詞，請據此修正所有同音或錯誤寫法：${glossary.trim()}` : '';
+  for (let off = 0; off < items.length; off += CHUNK) {
+    const part = items.slice(off, off + CHUNK);
+    const list = part.map((c, i) => `${i}|${c.text.replace(/\n/g, ' ')}`).join('\n');
+    const prompt = `你係粵語字幕校對員。修正以下每行字幕嘅明顯錯誤：同音字、錯別字、人名／專有名詞、多餘或缺漏嘅標點。
+**規則：保持每行獨立、唔好合併或拆開、唔好改變原意、唔好加任何解釋。**${gloss}
+**只回覆 JSON 字串陣列**，數量同順序必須同輸入完全一致：["修正後第0行", ...]
+字幕（格式 索引|原文）：
+${list}`;
+    try {
+      const raw = await callAnalyze(prompt, '你只會輸出有效 JSON 陣列，無任何其他文字。');
+      const arr = JSON.parse(raw.slice(raw.indexOf('['), raw.lastIndexOf(']') + 1));
+      if (Array.isArray(arr)) arr.forEach((t: any, i: number) => { if (off + i < out.length && t != null) out[off + i] = String(t); });
+    } catch { /* keep originals for this chunk on failure */ }
+  }
+  return out;
 };
 
 // Translate each cue's text into the target language. Batched, order-preserving.

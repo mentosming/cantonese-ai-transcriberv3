@@ -1,5 +1,6 @@
 import React from 'react';
 import { UserCog, Crown } from 'lucide-react';
+import { LogoMark } from './Logo';
 
 interface MobileHeaderProps {
   isPro: boolean;
@@ -17,12 +18,12 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({ isPro, onLoginClick, status
         </div>
 
         {/* Center: Title (iOS Style) */}
-        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
+        <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
+          <LogoMark size={26} className="rounded-[8px]" radius={8} />
           <h1 className="text-[17px] font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-1 leading-none">
-            Cantonese AI
+            Canto AI
             {isPro && <Crown size={12} className="text-amber-500 fill-amber-500" />}
           </h1>
-          <div className="w-6 h-0.5 mt-1 bg-blue-500 rounded-full opacity-50" />
         </div>
 
         {/* Right Side: Account/Settings */}
