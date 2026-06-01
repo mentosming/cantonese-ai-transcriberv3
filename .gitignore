@@ -44,3 +44,6 @@ image.png
 # Brand icon source candidates (local only) + test artifacts
 brand-assets/
 public/__test_clip.mp4
+
+# Local MCP config (contains Zeabur API token)
+.mcp.json
