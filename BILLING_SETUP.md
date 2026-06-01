@@ -51,7 +51,22 @@ cd server && npm install   # 已加入 stripe + firebase-admin
 
 ## 3. Stripe（Web）
 
-1. Stripe Dashboard → 建立 3 個一次性產品（60/180/600 分鐘）+ 1 個 recurring 月費產品，記低各自 **Price ID**。
+### 3.0 帳戶策略 —— 獨立帳戶、同一 login（唔使 Connect）⚠️
+Canto AI **唔好**同其他生意（例如 `HKLAW-LLM`）共用同一個 Stripe 帳戶，否則客人喺 Checkout 頁 / 卡單 / 收據都會見到嗰個品牌。
+
+正確做法：
+1. Stripe Dashboard 右上角帳戶切換器 → **「+ New account」**，喺**同一個 login** 下開一個 `Canto AI` 帳戶。
+   - 每個帳戶有獨立品牌 / checkout / payout / 報表 / 稅務；一個 login 管晒。對其他帳戶（HKLAW-LLM）**零影響**。
+   - 呢個就係「多 project = 多帳戶、同一 login」嘅標準做法，**唔需要 Stripe Connect**（Connect 係畀平台 onboard 第三方賣家用，會改 server webhook/billing，殺雞用牛刀）。
+2. 喺 `Canto AI` 帳戶：Settings → Public details 設好 business name + statement descriptor（卡單顯示）。
+3. 之後 3.1 嘅 **product / price / webhook / secret key 全部喺 `Canto AI` 帳戶**做。
+   - ⚠️ **一致性**：`server/.env` 嘅 `STRIPE_SECRET_KEY` 同所有 `STRIPE_PRICE_*` 必須**全部嚟自同一帳戶、同一 mode**（全 live 或全 test），否則 checkout 會 `Unknown/unconfigured pack` 或搵唔到 price。
+4. （可選）想用 MCP / 程式幫手建 price，就將工具連線嘅 Stripe key 換成 `Canto AI` 帳戶嘅 secret key；否則 dashboard 手動建。
+
+> 註：之前用 MCP（連住 HKLAW-LLM）試建嘅 `prod_UcPwceEAi1f0Y6` 無 price、無法被購買；得閒喺 HKLAW-LLM dashboard archive 佢即可。
+
+### 3.1 建立 product + price + webhook
+1. （喺 `Canto AI` 帳戶）建立 3 個一次性產品（60/180/600 分鐘）+ 1 個 recurring 月費產品，記低各自 **Price ID**。
 2. Webhook endpoint：`https://<your-server>/api/stripe-webhook`，訂閱事件：
    `checkout.session.completed`、`invoice.paid`、`customer.subscription.updated`、`customer.subscription.deleted`。
 3. `server/.env`：
