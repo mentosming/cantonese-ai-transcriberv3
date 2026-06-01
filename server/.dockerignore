@@ -1,0 +1,11 @@
+# Never bake secrets or local cruft into the image — env is supplied by Zeabur.
+.env
+.env.*
+sa-key.json
+*.pem
+*.key
+node_modules
+npm-debug.log*
+*.log
+scripts/
+.DS_Store
