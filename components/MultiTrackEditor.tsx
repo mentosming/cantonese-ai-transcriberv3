@@ -10,8 +10,7 @@ import { designCaptionStyle, designCueAnimations, translateCues, pickMusicForVib
 import { extractForSubtitles } from '../services/extractAudio';
 import { alignCuesToOnsets, alignCharsToEnergy } from '../services/vadAlign';
 import { UserProfile, TranscriptionSettings } from '../types';
-
-const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:3001';
+import { API_BASE } from '../services/apiBase';
 type Aspect = 'original' | '9_16' | '1_1' | '16_9';
 
 // Minimal SRT parser → cues.

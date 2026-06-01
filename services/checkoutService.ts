@@ -1,8 +1,5 @@
 import { CREDIT_PACKS, MONTHLY_PLAN, REVENUECAT_IOS_SDK_KEY } from "../constants";
-
-// Server base for Stripe endpoints. Defaults to the bundled proxy server.
-const API_BASE =
-  (import.meta as any).env?.VITE_API_BASE || "http://localhost:3001";
+import { API_BASE } from "./apiBase";
 
 /**
  * True when running inside the native iOS shell (Capacitor). On iOS, Apple

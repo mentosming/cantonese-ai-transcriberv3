@@ -1,9 +1,9 @@
 import { TranscriptionSettings, TranscriptionError } from "../types";
 import { ERROR_MESSAGES, DEFAULT_MODEL } from "../constants";
+import { API_BASE } from "./apiBase";
 
 // All Gemini calls go through the server so the API key never reaches the
-// browser. Configure the server origin via VITE_API_BASE.
-const API_BASE = (import.meta as any).env?.VITE_API_BASE || "http://localhost:3001";
+// browser. Server origin resolved in ./apiBase (VITE_API_BASE → localhost/prod).
 
 export const transcribeMedia = async (
   file: File,
